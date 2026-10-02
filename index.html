@@ -1,0 +1,1701 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Офисный SIMS: дожить до пятницы</title>
+<style>
+:root{
+  --bg:#F4EFE6; --floor:#E3D5C0; --wall:#BFD7EA; --accent:#FF7A59;
+  --success:#5CC48A; --warn:#F5B83D; --danger:#E5534B; --text:#2B2B3A; --stroke:#2B2B3A;
+  --panel:#FFFFFF;
+}
+*{box-sizing:border-box;}
+html,body{height:100%;margin:0;overflow:hidden;font-family:"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;color:var(--text);background:var(--bg);}
+button{font-family:inherit;}
+#app{position:absolute;inset:0;}
+.screen{position:absolute;inset:0;display:none;overflow:auto;}
+.screen.active{display:flex;flex-direction:column;}
+.hidden{display:none !important;}
+
+/* ---------- generic ---------- */
+.btn{border:2px solid var(--stroke);border-radius:10px;background:var(--panel);cursor:pointer;font-weight:600;padding:8px 14px;color:var(--text);}
+.btn:hover:not(:disabled){transform:translateY(-1px);}
+.btn:disabled{opacity:.45;cursor:not-allowed;transform:none;}
+.btn.primary{background:var(--accent);color:#fff;}
+.btn.ghost{background:transparent;}
+.swatch{width:28px;height:28px;border-radius:50%;border:2px solid var(--stroke);cursor:pointer;padding:0;}
+.swatch.selected{outline:3px solid var(--accent);outline-offset:2px;}
+.chip{border:2px solid var(--stroke);border-radius:10px;background:var(--panel);padding:6px 10px;cursor:pointer;font-size:13px;}
+.chip.selected{background:var(--accent);color:#fff;}
+.chip:disabled{opacity:.35;cursor:not-allowed;}
+
+/* ---------- character select ---------- */
+#screen-select{align-items:center;justify-content:flex-start;padding:24px;gap:16px;}
+.select-title{font-size:28px;font-weight:800;margin:8px 0;}
+.char-grid{display:flex;flex-wrap:wrap;gap:16px;justify-content:center;max-width:960px;}
+.char-card{width:200px;border:2px solid var(--stroke);border-radius:16px;background:var(--panel);padding:12px;text-align:center;position:relative;}
+.char-card.last{box-shadow:0 0 0 3px var(--accent);}
+.char-card svg{width:100px;height:130px;}
+.char-card h3{margin:4px 0 0;}
+.char-card .pos{font-size:12px;opacity:.7;margin-bottom:4px;}
+.char-card .status{font-size:11px;background:var(--wall);border-radius:6px;padding:3px 6px;margin:6px 0;}
+.char-card .row{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-top:6px;}
+.char-card .titles{font-size:16px;margin-top:4px;}
+.new-char-card{display:flex;align-items:center;justify-content:center;font-size:40px;color:var(--accent);}
+
+/* ---------- creator ---------- */
+#screen-creator{padding:16px;gap:16px;}
+.creator-wrap{display:flex;gap:24px;flex:1;max-width:1100px;margin:0 auto;width:100%;}
+.creator-preview{flex:0 0 260px;display:flex;flex-direction:column;align-items:center;gap:8px;}
+.creator-preview svg{width:200px;height:260px;}
+.creator-form{flex:1;display:flex;flex-direction:column;gap:12px;overflow:auto;padding-right:8px;}
+.field{display:flex;flex-direction:column;gap:6px;}
+.field label{font-weight:700;font-size:13px;}
+.field input[type=text]{border:2px solid var(--stroke);border-radius:8px;padding:8px;font-size:14px;}
+.field select{border:2px solid var(--stroke);border-radius:8px;padding:8px;font-size:14px;}
+.swatch-row{display:flex;gap:8px;flex-wrap:wrap;}
+.trait-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;}
+.trait-card{border:2px solid var(--stroke);border-radius:10px;padding:8px;cursor:pointer;background:var(--panel);font-size:12px;}
+.trait-card.selected{background:#FFE3D8;border-color:var(--accent);}
+.trait-card:disabled{opacity:.35;cursor:not-allowed;}
+.trait-card b{display:block;font-size:13px;}
+.creator-actions{display:flex;gap:10px;justify-content:center;padding:8px 0;}
+
+/* ---------- game screen ---------- */
+#screen-game{height:100%;}
+.game-grid{display:grid;grid-template-rows:72px 1fr 88px;grid-template-columns:1fr 300px;height:100%;gap:8px;padding:8px;}
+.game-header{grid-column:1/3;display:flex;align-items:center;gap:14px;background:var(--panel);border:2px solid var(--stroke);border-radius:14px;padding:6px 14px;position:relative;}
+.hdr-portrait{width:48px;height:62px;flex:0 0 auto;}
+.hdr-portrait svg{width:100%;height:100%;}
+.hdr-name{font-weight:800;font-size:14px;line-height:1.1;}
+.hdr-pos{font-size:11px;opacity:.7;}
+.hdr-day{font-weight:800;font-size:15px;text-align:center;}
+.hdr-time{font-size:13px;opacity:.8;text-align:center;}
+.hdr-dots{display:flex;gap:3px;justify-content:center;}
+.hdr-dots span{width:7px;height:7px;border-radius:50%;background:var(--wall);border:1px solid var(--stroke);}
+.hdr-dots span.done{background:var(--accent);}
+.hdr-dots span.today{background:var(--text);}
+.stats-row{display:flex;gap:10px;margin-left:auto;flex-wrap:wrap;}
+.stat{display:flex;align-items:center;gap:4px;font-size:12px;position:relative;}
+.stat-bar{width:56px;height:10px;border:2px solid var(--stroke);border-radius:6px;overflow:hidden;background:#fff;}
+.stat-fill{height:100%;transition:width .35s ease;}
+.stat-num{width:22px;text-align:left;font-weight:700;}
+.popup-delta{position:absolute;top:-14px;left:50%;transform:translateX(-50%);font-weight:800;font-size:12px;pointer-events:none;animation:popUp 1s ease-out forwards;}
+@keyframes popUp{0%{opacity:1;transform:translate(-50%,0);}100%{opacity:0;transform:translate(-50%,-22px);}}
+.buffs-row{display:flex;gap:6px;position:absolute;bottom:-18px;left:14px;font-size:11px;}
+.buff-tag{background:var(--wall);border:1px solid var(--stroke);border-radius:8px;padding:1px 6px;}
+.menu-btn{border:2px solid var(--stroke);border-radius:10px;background:var(--panel);width:36px;height:36px;font-size:18px;cursor:pointer;}
+
+.office-wrap{background:var(--panel);border:2px solid var(--stroke);border-radius:14px;overflow:hidden;position:relative;}
+.office-wrap svg{width:100%;height:100%;display:block;}
+.player-group{transition:transform .6s ease;}
+.player-group.anim-bob{animation:bob .5s ease-in-out infinite alternate;}
+@keyframes bob{from{transform:translateY(0);}to{transform:translateY(-3px);}}
+.colleague-group{animation:colbob 2.4s ease-in-out infinite;}
+.colleague-group:nth-child(2n){animation-duration:3.1s;}
+@keyframes colbob{0%,100%{transform:translateY(0);}50%{transform:translateY(-2px);}}
+.speech-bubble{position:absolute;background:#fff;border:2px solid var(--stroke);border-radius:10px;padding:4px 8px;font-size:11px;max-width:160px;transform:translate(-50%,-100%);animation:bubbleIn .25s ease-out;z-index:5;}
+@keyframes bubbleIn{from{opacity:0;transform:translate(-50%,-90%) scale(.8);}to{opacity:1;transform:translate(-50%,-100%) scale(1);}}
+
+.sidebar{display:flex;flex-direction:column;gap:8px;overflow:hidden;}
+.panel{background:var(--panel);border:2px solid var(--stroke);border-radius:14px;padding:8px;overflow:hidden;display:flex;flex-direction:column;}
+.panel h4{margin:0 0 6px;font-size:13px;}
+.tasks-panel{flex:0 0 auto;max-height:36%;overflow:auto;}
+.task-item{font-size:12px;display:flex;gap:6px;align-items:center;padding:3px 0;border-bottom:1px dashed #ddd;}
+.task-item.overdue{color:var(--danger);}
+.task-item.done{opacity:.5;text-decoration:line-through;}
+.log-panel{flex:1;overflow:hidden;}
+.log-list{overflow:auto;flex:1;display:flex;flex-direction:column-reverse;}
+.log-item{font-size:11px;padding:3px 0;border-bottom:1px dashed #eee;animation:slideIn .3s ease-out;}
+@keyframes slideIn{from{opacity:0;transform:translateX(12px);}to{opacity:1;transform:translateX(0);}}
+
+.actions-bar{grid-column:1/3;display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:6px;background:var(--panel);border:2px solid var(--stroke);border-radius:14px;padding:6px;}
+.action-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border:2px solid var(--stroke);border-radius:10px;background:#fff;cursor:pointer;padding:4px;font-size:11px;position:relative;}
+.action-btn .ic{font-size:18px;}
+.action-btn .cost{font-size:9px;opacity:.6;}
+.action-btn:disabled{opacity:.4;cursor:not-allowed;}
+.action-btn.highlight{animation:pulse 1.2s ease-in-out infinite;}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(255,122,89,.6);}50%{box-shadow:0 0 0 6px rgba(255,122,89,0);}}
+
+/* ---------- modal ---------- */
+#modal-root{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.5);z-index:50;padding:16px;}
+#modal-root.open{display:flex;}
+.modal-box{background:var(--panel);border:2px solid var(--stroke);border-radius:16px;padding:20px;max-width:480px;width:100%;max-height:90vh;overflow:auto;animation:popIn .25s ease-out;}
+@keyframes popIn{from{opacity:0;transform:scale(.9);}to{opacity:1;transform:scale(1);}}
+.modal-box h2{margin-top:0;}
+.modal-options{display:flex;flex-direction:column;gap:8px;margin-top:12px;}
+.modal-options .btn{text-align:left;}
+.hint{float:right;opacity:.7;font-size:12px;}
+.modal-footer{display:flex;gap:10px;justify-content:flex-end;margin-top:16px;}
+.disclaimer{font-size:10px;opacity:.6;margin-top:10px;}
+.confetti{position:fixed;top:-10px;width:8px;height:8px;z-index:60;animation:fall linear forwards;}
+@keyframes fall{to{transform:translateY(110vh) rotate(360deg);opacity:.3;}}
+#toast{position:fixed;bottom:10px;left:50%;transform:translateX(-50%);background:var(--danger);color:#fff;padding:8px 14px;border-radius:8px;font-size:12px;z-index:70;}
+
+/* ---------- responsive ---------- */
+@media (max-width:1023px){
+  .game-grid{grid-template-columns:1fr 240px;}
+}
+@media (max-width:767px){
+  html,body{overflow:auto;}
+  .screen.active{overflow:auto;}
+  #screen-game{height:auto;min-height:100%;}
+  .game-grid{display:flex;flex-direction:column;height:auto;min-height:100%;padding:6px;gap:6px;}
+  .game-header{flex-wrap:wrap;}
+  .stats-row{display:grid;grid-template-columns:1fr 1fr;width:100%;margin-left:0;}
+  .office-wrap{height:40vh;order:2;}
+  .sidebar{order:3;}
+  .tasks-panel{max-height:120px;}
+  .log-panel{max-height:140px;}
+  .actions-bar{order:4;grid-auto-flow:row;grid-template-columns:repeat(4,1fr);position:sticky;bottom:0;}
+  .action-btn{min-height:44px;}
+  .creator-wrap{flex-direction:column;}
+  .creator-preview{position:sticky;top:0;background:var(--bg);z-index:2;}
+  .modal-options .btn{width:100%;}
+}
+@media (prefers-reduced-motion:reduce){
+  *{animation:none !important;transition:none !important;}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="screen" id="screen-select"></div>
+  <div class="screen" id="screen-creator"></div>
+  <div class="screen" id="screen-game"></div>
+</div>
+<div id="modal-root" role="dialog" aria-modal="true"></div>
+<div id="toast" class="hidden"></div>
+<script>
+'use strict';
+/* ====================== UTIL ====================== */
+function rand(){ return Math.random(); }
+function randInt(min,max){ return Math.floor(rand()*(max-min+1))+min; }
+function pick(arr){ return arr[Math.floor(rand()*arr.length)]; }
+function clamp(v,min,max){ return Math.max(min,Math.min(max,v)); }
+function pad2(n){ return n<10?'0'+n:''+n; }
+function fmtTime(minutes){ const m=((minutes%1440)+1440)%1440; return pad2(Math.floor(m/60))+':'+pad2(m%60); }
+function uid(prefix){ return prefix+'_'+Date.now()+'_'+Math.floor(rand()*100000); }
+function el(html){ const t=document.createElement('template'); t.innerHTML=html.trim(); return t.content.firstElementChild; }
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* ====================== STORAGE ====================== */
+const LS_KEYS={characters:'officeSims.v1.characters', saves:'officeSims.v1.saves', settings:'officeSims.v1.settings'};
+let storageOk=true;
+function loadJSON(key,fallback){
+  try{ const raw=localStorage.getItem(key); if(!raw) return fallback; return JSON.parse(raw); }
+  catch(e){ console.error('load failed',key,e); return fallback; }
+}
+function saveJSON(key,value){
+  try{ localStorage.setItem(key, JSON.stringify(value)); return true; }
+  catch(e){ console.error('save failed',key,e); storageOk=false; showToast('Сохранение недоступно в этом браузере — прогресс не будет сохранён.'); return false; }
+}
+function showToast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.remove('hidden'); setTimeout(()=>t.classList.add('hidden'), 4000); }
+
+/* ====================== DATA ====================== */
+const POSITIONS=['Менеджер','Разработчик','Дизайнер','Бухгалтер','HR-специалист','Аналитик','Стажёр','Маркетолог'];
+const NAME_POOL=['Валера','Ксюша','Аркаша','Марина','Толик','Даша','Жора','Лиза','Денис','Оля','Стас','Настя','Паша','Катя','Вова','Юля','Сеня','Вика','Гриша','Инна','Костя','Лена'];
+const SKIN_TONES=['#FFE0C2','#F6C9A0','#E0A878','#C68863','#9C6646','#6B4430'];
+const HAIR_STYLES=[['short','Короткая'],['spiky','Ёжик'],['bob','Каре'],['ponytail','Хвостик'],['curly','Кудри'],['bald','Лысина с достоинством']];
+const HAIR_COLORS=['#2B2B3A','#6B4226','#C1502E','#E8C170','#B9B9C2','#F4A6C6'];
+const OUTFITS=[['shirt','Рубашка с галстуком'],['hoodie','Худи'],['suit','Деловой костюм'],['sweater','Свитер с оленями'],['tshirt','Футболка с мемом'],['dress','Платье-футляр']];
+const OUTFIT_COLORS=['#5C7CFA','#FF7A59','#5CC48A','#F5B83D','#E5534B','#2B2B3A'];
+const ACCESSORIES=[['none','Нет'],['glasses','Очки'],['headphones','Наушники'],['badge','Бейдж на шнурке'],['mug','Кружка в руке']];
+
+const TRAITS=[
+ {id:'coffeeLover', icon:'☕', name:'Кофеман', desc:'Кофе даёт +30⚡ и 5 чашек без штрафа. Без кофе до 11:00 — −10😊', incompatible:[]},
+ {id:'socialite', icon:'🎉', name:'Душа компании', desc:'«Поболтать» +25😊/+5⭐, без штрафа за 3-ю болтовню', incompatible:['introvert']},
+ {id:'introvert', icon:'🎧', name:'Интроверт', desc:'«Поболтать» только +5😊; «Работать» −10⚡; совещания −5😊 доп.', incompatible:['socialite']},
+ {id:'workaholic', icon:'💼', name:'Трудоголик', desc:'25% шанс x2 прогресса; переработка без штрафа; уйти до 19:00 −5😊', incompatible:['procrastinator']},
+ {id:'procrastinator', icon:'🦥', name:'Прокрастинатор', desc:'25% шанс 0 прогресса (+10😊); перед 18:00 — 2 прогресса', incompatible:['workaholic']},
+ {id:'careerist', icon:'📈', name:'Карьерист', desc:'Совещания +15⭐; лучшие исходы с начальством; «Поболтать» −3😊', incompatible:[]},
+ {id:'gourmet', icon:'🍕', name:'Гурман', desc:'Обед −80🍔/+15😊; голод растёт быстрее (+8/ч)', incompatible:[]},
+ {id:'earlyBird', icon:'🌅', name:'Жаворонок', desc:'До 12:00 −30% энергозатрат, после 18:00 +30%; ночью +5⚡', incompatible:['nightOwl']},
+ {id:'nightOwl', icon:'🦉', name:'Сова', desc:'До 11:00 +30% энергозатрат, после 15:00 −30%; переработка бодрит', incompatible:['earlyBird']},
+ {id:'lucky', icon:'🍀', name:'Везунчик', desc:'Шанс удачи в событиях +20 п.п.', incompatible:[]},
+ {id:'ironLiver', icon:'🛡', name:'Стальная печень', desc:'«Ещё по одной» в 50% случаев без похмелья', incompatible:[]},
+ {id:'anxious', icon:'😰', name:'Тревожный', desc:'Изменения репутации ±50% сильнее; +5😊 за поручение', incompatible:[]}
+];
+function traitById(id){ return TRAITS.find(t=>t.id===id); }
+
+const TASKS_GENERIC=[
+ 'Переименовать final_final_v3_точно.docx','Согласовать согласование','Свести таблицу, которую никто не откроет',
+ 'Ответить на письмо «Есть минутка?»','Сделать презентацию про сокращение презентаций','Найти, кто ставит пустой чайник на плиту',
+ 'Обновить KPI по обновлению KPI','Заполнить отчёт о заполнении отчётов','Перенести встречу, которую уже дважды переносили',
+ 'Найти файл «новый документ (3) (копия) (финал)»','Согласовать логотип с теми, кто не отвечает','Придумать название для нового процесса',
+ 'Разобрать 999+ непрочитанных писем','Починить ссылку, которая и так работала','Написать регламент по написанию регламентов',
+ 'Собрать обратную связь по обратной связи','Обновить презентацию на год раньше','Перепроверить то, что уже перепроверили',
+ 'Найти автора таблицы без автора','Согласовать шрифт для внутреннего документа','Актуализировать список актуальных задач',
+ 'Отправить то же письмо ещё раз, но вежливее','Придумать повестку для встречи без повестки','Сделать так, чтобы «просто заработало»',
+ 'Найти, кто удалил важный файл «на всякий случай»','Объяснить начальнику то же самое в третий раз','Выяснить, зачем нужна эта встреча'
+];
+const TASKS_BY_POSITION={
+ 'Менеджер':['Согласовать график отпусков всех сразу','Провести встречу про итоги встречи','Распределить задачи так, чтобы всем хватило'],
+ 'Разработчик':['Починить баг, который на самом деле фича','Отрефакторить код, который все боятся трогать','Написать тест для кода без тестов'],
+ 'Дизайнер':['Сделать логотип «покрупнее»','Выбрать между 50 оттенками белого','Переделать макет в седьмой раз'],
+ 'Бухгалтер':['Найти потерянные 3 копейки','Свести баланс, который не сходится','Объяснить, почему цифры не бьются'],
+ 'HR-специалист':['Организовать тимбилдинг, которого никто не хочет','Разослать опрос вовлечённости','Придумать ценность компании номер семь'],
+ 'Аналитик':['Построить дашборд, который никто не откроет','Найти инсайт в данных без данных','Пересчитать метрику в третий раз'],
+ 'Стажёр':['Разобраться, что такое «синхронизация»','Принести всем кофе и запомнить заказы','Найти, где лежит регламент регламентов'],
+ 'Маркетолог':['Придумать слоган короче названия компании','Запустить рекламу про отмену рекламы','Согласовать пост с десятью людьми']
+};
+function taskPoolFor(position){ return TASKS_GENERIC.concat(TASKS_BY_POSITION[position]||[]); }
+
+const CHAT_LINES=[
+ 'Ты видел новую рассылку? Я тоже не читал.','Говорят, в пятницу дадут пиццу. Говорят это с 2019 года.',
+ 'Я так устал, что моргаю по расписанию.','Мой кот работает больше меня — спит 20 часов, и никто не спрашивает KPI.',
+ 'А ты заметил, что у принтера характер хуже, чем у начальника?','Я нашёл файл 2016 года. Там мы ещё верили в сроки.',
+ 'Говорят, если промолчать на совещании, тебя не заметят. Работает через раз.','Моя жизненная цель — доесть печенье Светланы Петровны незамеченным.',
+ 'Я установил на комп обои с пляжем. Теперь мечтаю сильнее.','Знаешь, сколько встреч можно было сделать письмом? Все.',
+ 'Я трижды перечитал одно письмо и так и не понял, что от меня хотят.','У меня в календаре два совещания одновременно. Я выбрал третье — поспать.',
+ 'Кофемашина знает мой заказ лучше, чем родная мама.','Я почти стал экспертом по разгадыванию, что хотел сказать Аркадий Борисович.',
+ 'Если бы степлеры могли говорить, они бы уже уволились.','Я мечтаю о дне, когда Wi-Fi не будет «почти работать».',
+ 'Мой план на сегодня — пережить сегодня.','Слышал, в соседнем отделе есть печенье получше. Разведка выехала.',
+ 'Я трижды пытался выйти из переговорки незаметно. Пока 0 из 3.','Понедельник был давно, а ощущение, что он не закончился.',
+ 'Я записал все свои идеи. Потом забыл пароль от заметок.','В нашем чате 400 непрочитанных. Я считаю это личным рекордом.'
+];
+const BUBBLE_LINES={
+ general:['Ещё одну таблицу — и я сам стану таблицей.','Кофе — это овощ?','Сколько до пятницы? А если честно?','Кажется, мой стул знает меня лучше, чем семья.','Я сегодня продуктивен. Почти как растение.'],
+ lowMood:['Хочу домой. Или в отпуск. Или на Марс.','Ещё одно совещание — и я напишу заявление карандашом.','Улыбаюсь, потому что так положено.'],
+ lowEnergy:['Глаза закрываются сами. Это уже не моргание, а медитация.','Я на автопилоте. Автопилот тоже устал.'],
+ hungry:['Я слышу, как печенье Светланы Петровны зовёт меня.','Мой живот ведёт переговоры без моего участия.','Думаю о борще. Непрерывно.'],
+ highMood:['Жизнь налаживается. Или это кофеин.','Сегодня даже принтер работает. Подозрительно хорошо.','Чувствую себя героем опенспейса.']
+};
+const MORNING_GREETS=['Понедельник. Ты держишься. Пока.','Вторник. Разгон продолжается.','Экватор недели. Дальше — под горку.','Четверг. Пятница уже видна на горизонте.','Пятница! Воздух пахнет свободой и чужой пиццей.'];
+const DAY_NAMES=['Понедельник','Вторник','Среда','Четверг','Пятница'];
+const DAY_SHORT=['Пн','Вт','Ср','Чт','Пт'];
+
+const NPCS=[
+ {name:'Аркадий Борисович', look:{skin:3,hair:'bald',hairColor:2,outfit:'suit',outfitColor:5,accessory:'none'}, zone:'meeting'},
+ {name:'Гена из IT', look:{skin:1,hair:'short',hairColor:0,outfit:'hoodie',outfitColor:0,accessory:'headphones'}, zone:'deskB'},
+ {name:'Светлана Петровна', look:{skin:2,hair:'bob',hairColor:4,outfit:'dress',outfitColor:2,accessory:'none'}, zone:'kitchen'},
+ {name:'Тимофей', look:{skin:0,hair:'spiky',hairColor:1,outfit:'tshirt',outfitColor:3,accessory:'badge'}, zone:'deskC'},
+ {name:'Алина из HR', look:{skin:1,hair:'ponytail',hairColor:5,outfit:'sweater',outfitColor:4,accessory:'none'}, zone:'deskD'}
+];
+const ZONES={
+ deskPlayer:{x:60,y:170,label:'Твой стол'}, deskB:{x:150,y:170,label:''}, deskC:{x:240,y:170,label:''}, deskD:{x:330,y:170,label:''},
+ meeting:{x:330,y:65,label:'Переговорная'}, coffee:{x:160,y:60,label:'Кофейная зона'}, kitchen:{x:55,y:65,label:'Кухня'},
+ chat:{x:110,y:225,label:'Кулер'}, door:{x:370,y:225,label:'Выход'}
+};
+
+const TITLES={
+ legend:{id:'legend',icon:'🏆',name:'Легенда офиса',caption:'О тебе будут рассказывать стажёрам'},
+ responsible:{id:'responsible',icon:'📚',name:'Ответственный за всё',caption:'Если что-то горит — зовут тебя. Даже если это пицца'},
+ coffeeSurvivor:{id:'coffeeSurvivor',icon:'☕',name:'Выжил на кофе',caption:'В твоих венах течёт эспрессо'},
+ meetingMaster:{id:'meetingMaster',icon:'🎤',name:'Мастер совещаний',caption:'Ты кивнул больше, чем видел слайдов'},
+ partySoul:{id:'partySoul',icon:'🍻',name:'Душа корпоратива',caption:'Тебя знает весь офис. И бармен'},
+ quietSurvivor:{id:'quietSurvivor',icon:'🐢',name:'Тихий выживальщик',caption:'Никто не заметил, но ты справился'},
+ freeSpirit:{id:'freeSpirit',icon:'🪁',name:'Свободен как ветер',caption:'Тебя торжественно проводили с тортом. Торт был вкусный'}
+};
+
+function mkOpt(label, fx, text, extra){ return Object.assign({label, fx:fx||{}, text:text||''}, extra||{}); }
+const EVENTS=[
+ {id:'urgent', title:'Срочно к 17:59', speaker:'npc:boss', text:'Аркадий Борисович: «Тут мелочь, нужно до конца дня. Это важно. Наверное».', options:[
+   mkOpt('Сделаю, куда деваться', {time:120, energy:-25, reputation:15}, 'Ты спас компанию. Компания этого не заметила.', {addTaskDone:{title:'Мелочь на два часа', size:1}}),
+   mkOpt('Это задача понедельника', {reputation:-10, mood:10}, 'Понедельник-ты уже ненавидит тебя.'),
+   mkOpt('Делегировать стажёру', {}, '', {outcomes:[
+     {chance:0.5, fx:{reputation:5}, text:'Тимофей справился и теперь считает тебя наставником.'},
+     {chance:0.5, fx:{reputation:-15}, text:'Тимофей отправил отчёт в чат с клиентом. С голосовым.'}
+   ]})
+ ]},
+ {id:'coffeeMachine', title:'Кофемашина сломалась', speaker:'object:coffee', text:'Кофемашина мигает всеми лампочками и издаёт звук умирающего модема.',
+  condition:(s)=>s.weekCounters.coffee>0, options:[
+   mkOpt('Починю скрепкой', {}, '', {outcomes:[
+     {chance:0.6, fx:{reputation:10, mood:10}, text:'Ты — герой кухни. Тебе выделили личную кружку.'},
+     {chance:0.4, fx:{energy:-10}, text:'Кофемашина обиделась и залила тебе ботинки.', flags:{coffeeBroken:true}}
+   ]}),
+   mkOpt('Сбегать в кофейню', {time:30, energy:20, mood:5}, 'Бариста написал твоё имя с тремя ошибками. Приятно, что старался.'),
+   mkOpt('Пить растворимый, как в 2007', {energy:5, mood:-5}, 'Вкус ностальгии и лёгкой безысходности.')
+ ]},
+ {id:'longMeeting', title:'Совещание на два часа', speaker:'npc:boss', text:'В календаре внезапно появилось: «Синхронизация по синхронизации», 2 часа.', options:[
+   mkOpt('Пойти и кивать', {time:120, reputation:15, mood:-20}, 'Ты кивнул 214 раз. Шея — новый KPI.'),
+   mkOpt('Камера с застывшим кадром', {reputation:5}, 'Стоп-кадр продержался. Никто не заметил.', {outcomes:[
+     {chance:0.2, fx:{reputation:-20}, text:'Твой стоп-кадр не моргал 40 минут. Заметили все.'}
+   ]}),
+   mkOpt('Это можно было письмом', {mood:15}, '', {outcomes:[
+     {chance:0.5, fx:{reputation:10}, text:'Совещание отменили. Тебе аплодировали стоя.'},
+     {chance:0.5, fx:{reputation:-10}, text:'Тебя назначили написать это письмо.', addTask:true}
+   ]})
+ ]},
+ {id:'replyAllYou', title:'Ответить всем (ты)', speaker:'object:mail', text:'Ты случайно отправил «ну и бред, хаха» в ответ на рассылку директора. Всем 300 сотрудникам.', options:[
+   mkOpt('Так и задумано', {reputation:-5, mood:5}, 'Тебя считают смелым. Или странным. Пока непонятно.'),
+   mkOpt('Извиниться всем', {time:30, reputation:-5, mood:-10}, 'Твоё извинение тоже ушло всем. Дважды.'),
+   mkOpt('Добить мемом', {}, '', {outcomes:[
+     {chance:0.5, fx:{reputation:15}, text:'Мем стал корпоративным. Его печатают на кружках.'},
+     {chance:0.5, fx:{reputation:-20}, text:'HR пригласила тебя на чай. Без печенья.'}
+   ]})
+ ]},
+ {id:'replyAllOther', title:'Ответить всем (не ты)', speaker:'object:mail', text:'Кто-то нажал «Ответить всем», и уже 47 человек ответили всем: «Уберите меня из рассылки».', options:[
+   mkOpt('Тоже попросить убрать', {reputation:-5, mood:5}, 'Ты стал 48-м. Это уже движение.'),
+   mkOpt('Написать: «Пожалуйста, не отвечайте всем»', {reputation:-10}, 'Ирония оценена. Не в твою пользу.'),
+   mkOpt('Молча настроить фильтр', {time:30, reputation:5, mood:10}, 'Тишина. Ты — мастер дзена и Outlook.')
+ ]},
+ {id:'fiveMinutes', title:'«На пять минут»', speaker:'npc:gena', text:'Гена из IT: «Слушай, глянешь на пять минут? Там прямо чуть-чуть».', options:[
+   mkOpt('Помочь', {time:90, energy:-15, reputation:10}, 'Пять минут прошли. Полтора часа назад.'),
+   mkOpt('Вежливо отказать', {mood:-5}, 'Гена грустно ушёл. Ты чувствуешь себя котом, уронившим вазу.'),
+   mkOpt('Скинуть ссылку на видео', {mood:5, reputation:-5}, 'Видео длилось 3 часа. Гена всё ещё смотрит.')
+ ]},
+ {id:'gotMinute', title:'Начальник: «Есть минутка?»', speaker:'npc:boss', text:'Аркадий Борисович появляется за спиной беззвучно, как ниндзя.', options:[
+   mkOpt('Да, конечно', {}, '', {outcomes:[
+     {chance:0.34, fx:{reputation:20}, text:'Тебя похвалили. Ты в шоке.'},
+     {chance:0.33, fx:{}, text:'Минутка оказалась проектом.', addTask:true},
+     {chance:0.33, fx:{mood:10}, text:'Он спрашивал, где степлер.'}
+   ]}),
+   mkOpt('Притвориться, что на звонке', {mood:5}, 'Сработало. Почти.', {outcomes:[
+     {chance:0.3, fx:{reputation:-10}, text:'Телефон зазвонил по-настоящему. В руке.'}
+   ]}),
+   mkOpt('Смотря для чего', {reputation:-5, mood:10}, 'Дерзко. Начальник уважительно хмыкнул и ушёл.')
+ ]},
+ {id:'birthday', title:'День рождения коллеги', speaker:'npc:svetlana', text:'Светлана Петровна принесла торт «Наполеон» размером с переговорную.', options:[
+   mkOpt('Один кусочек', {hunger:-20, mood:10}, 'Идеально. Ты — образец умеренности.'),
+   mkOpt('Три куска', {hunger:-50, energy:-10}, 'Ты на сахарных американских горках.', {flags:{sugarCrash:true}}),
+   mkOpt('Скинуться на подарок, которого не видел', {mood:-5, reputation:5}, '500 рублей ушли на сертификат в магазин носков.')
+ ]},
+ {id:'fireDrill', title:'Учебная пожарная тревога', speaker:'object:alarm', text:'Сирена! Все выходят на улицу. Охранник с секундомером.', options:[
+   mkOpt('Выйти со всеми', {time:60, energy:5, mood:10}, 'Свежий воздух! Ты забыл, что он существует.'),
+   mkOpt('Остаться работать', {reputation:-10}, 'Тебя «спасли» пожарные. На фото для отчёта ты выглядишь недовольным.', {progress:1}),
+   mkOpt('Выйти и купить шаурму', {time:60, hunger:-40, mood:10}, 'Лучшая эвакуация в истории.')
+ ]},
+ {id:'printer', title:'Принтер жуёт бумагу', speaker:'object:printer', text:'Принтер выдаёт «Ошибка 0x000ВЫ_НЕ_ПРОЙДЁТЕ».', options:[
+   mkOpt('Дать ему по крышке', {}, '', {outcomes:[
+     {chance:0.5, fx:{mood:15}, text:'Заработало! Ты — повелитель техники.'},
+     {chance:0.5, fx:{reputation:-5, mood:-5}, text:'Принтер напечатал 80 пустых листов в отместку.'}
+   ]}),
+   mkOpt('Позвать Гену', {time:30, mood:5}, 'Гена выключил и включил. Ты почувствовал себя глупо, но счастливо.'),
+   mkOpt('Распечатать у соседнего отдела', {reputation:5, time:15}, 'Ты завёл связи. И узнал, что у них есть печенье.')
+ ]},
+ {id:'update', title:'Обновление системы', speaker:'object:pc', text:'Компьютер: «Не выключайте устройство. Обновление 1 из 47».', options:[
+   mkOpt('Смириться и отдохнуть', {time:60, energy:10, mood:5}, 'Медитация на синий экран.'),
+   mkOpt('Работать с телефона', {energy:-10, mood:-5}, 'Ты набрал отчёт большим пальцем. Палец просит отпуск.', {progress:1}),
+   mkOpt('Пойти «в другой отдел по делу»', {mood:10, reputation:-5}, 'Дело оказалось в кафетерии.')
+ ]},
+ {id:'ac', title:'Война за кондиционер', speaker:'object:ac', text:'В офисе +16. Половина в пуховиках, вторая половина требует ещё холоднее.', options:[
+   mkOpt('Тайно выключить', {mood:5, reputation:-5}, 'Тебя вычислили по отпечаткам на пульте.'),
+   mkOpt('Надеть свитер и жить', {mood:-5}, 'Ты пережил ледниковый период. Мамонты гордятся.'),
+   mkOpt('Созвать совещание по кондиционеру', {time:60, reputation:10, mood:5}, 'Создана рабочая группа. Решение — через квартал.')
+ ]},
+ {id:'lunchStolen', title:'Кто-то съел твой обед', speaker:'object:fridge', text:'В холодильнике пустой контейнер и записка «Спасибо, было вкусно».',
+  condition:(s)=>s.minutes<900 && !s.dailyCounters.lunch, options:[
+   mkOpt('Провести расследование', {time:60}, '', {outcomes:[
+     {chance:0.5, fx:{mood:15, reputation:5, hunger:-30}, text:'Это был Тимофей. Он принёс тебе пиццу в знак раскаяния.'},
+     {chance:0.5, fx:{mood:-10}, text:'Следствие зашло в тупик. Дело закрыто.'}
+   ]}),
+   mkOpt('Пассивно-агрессивная записка', {mood:10, reputation:-5}, '«Приятного аппетита, ВОР :)» — висит на холодильнике до сих пор.'),
+   mkOpt('Заказать доставку', {hunger:-40, mood:-5}, 'Курьер заблудился, но ты дождался.', {flags:{lunchUsed:true}})
+ ]},
+ {id:'internQuestions', title:'Стажёр с вопросами', speaker:'npc:timofey', text:'Тимофей: «А можно вопрос? И ещё один? И ещё штук двенадцать?»', options:[
+   mkOpt('Терпеливо объяснить', {time:60, energy:-10, reputation:10}, 'Тимофей записал за тобой каждое слово. Даже «эээ».'),
+   mkOpt('Отправить к Гене', {mood:5}, 'Гена отправил его обратно. Круговорот стажёров в природе.'),
+   mkOpt('Научить Ctrl+C / Ctrl+V', {}, 'Тимофей воспрял духом.', {progress:1, outcomes:[
+     {chance:0.3, fx:{reputation:-10}, text:'Тимофей скопировал не тот отчёт. Целиком.'}
+   ]})
+ ]},
+ {id:'hrSurvey', title:'Отчёт о заполнении отчётов', speaker:'npc:alina', text:'Алина из HR: «Заполните, пожалуйста, анкету вовлечённости. 84 вопроса».', options:[
+   mkOpt('Заполнить честно', {time:30, reputation:5, mood:-5}, 'Ты честно написал, что любишь пятницы.'),
+   mkOpt('Поставить везде «5»', {time:15}, 'Твоя вовлечённость — 100%. Тебя позвали в рекламу вакансий.'),
+   mkOpt('Проигнорировать', {}, '', {outcomes:[
+     {chance:0.3, fx:{reputation:-10}, text:'Тебе пришло 7 напоминаний и один грустный смайлик.'},
+     {chance:0.7, fx:{mood:5}, text:'Пронесло.'}
+   ]})
+ ]},
+ {id:'corgi', title:'Собака в офисе', speaker:'object:dog', text:'Кто-то привёл корги. Он ходит по офису с видом начальника.', options:[
+   mkOpt('Гладить', {time:30, mood:25}, 'Лучшие 30 минут недели. Корги одобряет.'),
+   mkOpt('Сделать вид, что занят', {mood:-5}, 'Корги посмотрел осуждающе. Это больно.'),
+   mkOpt('Назначить его маскотом', {reputation:10, mood:10}, 'У корги теперь бейдж и должность выше твоей.')
+ ]},
+ {id:'onMute', title:'Говорил на mute', speaker:'object:call', text:'Ты 10 минут вдохновенно выступал на созвоне. Микрофон был выключен.', options:[
+   mkOpt('Повторить всё заново', {time:30, reputation:5, energy:-10}, 'Второй дубль вышел хуже, но слышнее.'),
+   mkOpt('Все и так поняли', {mood:5, reputation:-5}, 'Никто ничего не понял, но все кивнули.'),
+   mkOpt('Написать конспект в чат', {reputation:10, energy:-5}, 'Твой конспект закрепили. Ты — летописец компании.')
+ ]},
+ {id:'internetDown', title:'Упал интернет', speaker:'object:wifi', text:'Весь офис замер. Слышно, как Светлана Петровна шуршит фантиком.', options:[
+   mkOpt('Пойти пить кофе всем офисом', {time:60, energy:10, mood:15}, 'Самый продуктивный час общения за год.'),
+   mkOpt('Раздать интернет с телефона', {reputation:15, energy:-10, mood:-5}, 'Ты — провайдер отдела. Тариф закончился через 20 минут.'),
+   mkOpt('Разложить скрепки по цветам', {mood:5}, 'Скрепки оказались одного цвета. Ты разложил их по настроению.')
+ ]}
+];
+const BOSS_EVENT={id:'bossCarpet', title:'Ковёр у начальника', speaker:'npc:boss', text:'Аркадий Борисович: «Присядь. Разговор серьёзный».', options:[
+ mkOpt('Оправдаться', {}, 'Ты выкрутился, но осадок остался.', {setReputation:[15,20], fx:{mood:-5}}),
+ mkOpt('Пообещать исправиться', {}, 'Тебе выдали дополнительных задач «для доверия».', {setReputation:[18,25], fx:{energy:-10}, addTask:true}),
+ mkOpt('Подарить кактус', {}, 'Несерьёзно, зато кактус теперь живёт на подоконнике.', {setReputation:[15,22], fx:{mood:10}})
+]};
+
+/* ====================== STATE ====================== */
+const App={
+ screen:'loading', characters:[], saves:{}, settings:{lastCharacterId:null, soundOn:false},
+ currentCharacterId:null, creatorDraft:null, creatorEditingId:null, modal:null, pendingConfirm:null,
+ soundOn:false, onboardingPending:false
+};
+
+function loadAll(){
+ App.characters = loadJSON(LS_KEYS.characters, []);
+ App.saves = loadJSON(LS_KEYS.saves, {});
+ App.settings = loadJSON(LS_KEYS.settings, {lastCharacterId:null, soundOn:false});
+ if(!Array.isArray(App.characters)) App.characters=[];
+ if(typeof App.saves!=='object' || App.saves===null) App.saves={};
+}
+function persistCharacters(){ saveJSON(LS_KEYS.characters, App.characters); }
+function persistSaves(){ saveJSON(LS_KEYS.saves, App.saves); }
+function persistSettings(){ saveJSON(LS_KEYS.settings, App.settings); }
+
+function defaultLook(){
+ return {skin:0, hair:'short', hairColor:0, outfit:'shirt', outfitColor:0, accessory:'none'};
+}
+function newDraft(){
+ return {id:null, name:'', position:POSITIONS[0], customPosition:'', look:defaultLook(), traits:[]};
+}
+function randomDraft(){
+ const traitsShuffled=TRAITS.slice().sort(()=>rand()-0.5);
+ let chosen=[];
+ for(const t of traitsShuffled){
+   if(chosen.length>=2) break;
+   if(chosen.some(c=>t.incompatible.includes(c.id)||c.incompatible.includes(t.id))) continue;
+   chosen.push(t);
+ }
+ return {
+  id:null, name:pick(NAME_POOL), position:pick(POSITIONS), customPosition:'',
+  look:{skin:randInt(0,5), hair:HAIR_STYLES[randInt(0,5)][0], hairColor:randInt(0,5), outfit:OUTFITS[randInt(0,5)][0], outfitColor:randInt(0,5), accessory:ACCESSORIES[randInt(0,4)][0]},
+  traits: chosen.map(t=>t.id)
+ };
+}
+function draftToCharacter(draft, existing){
+ const position = draft.position==='Своя…'? (draft.customPosition||'Сотрудник') : draft.position;
+ return {
+  id: existing? existing.id : uid('c'),
+  name: draft.name.trim(),
+  position,
+  look: Object.assign({}, draft.look),
+  traits: draft.traits.slice(0,2),
+  bestTitle: existing? existing.bestTitle : null,
+  titles: existing? existing.titles.slice() : [],
+  weeksPlayed: existing? existing.weeksPlayed : 0,
+  createdAt: existing? existing.createdAt : Date.now()
+ };
+}
+
+function generateTasksForDay(position, dayIndex, countOverride){
+ const counts=[2,3,3,3,2];
+ const count = countOverride!=null?countOverride:counts[dayIndex];
+ const pool = taskPoolFor(position).slice().sort(()=>rand()-0.5);
+ const list=[];
+ for(let i=0;i<count;i++){
+   const title = pool[i%pool.length];
+   list.push({id:uid('t'), title, size:randInt(1,3), progress:0, day:dayIndex, overdue:false, completed:false});
+ }
+ return list;
+}
+
+function newGameState(character){
+ const tasks = generateTasksForDay(character.position, 0);
+ return {
+  version:1, characterId:character.id, day:0, minutes:540,
+  stats:{energy:80, mood:70, hunger:20, reputation:50},
+  buffs:[],
+  tasks: tasks,
+  dailyCounters:{coffee:0, meetings:0, chats:0, lunch:false, events:0},
+  weekCounters:{coffee:0, meetings:0, chats:0, beers:0, overtimeMin:0, events:0, tasksDone:0, tasksTotal:tasks.length},
+  flags:{hangover:false, urgentEventDone:false, bossWarnings:0, coffeeBroken:false, coffeePenaltyApplied:false, hangoverHalfCoffeeUsed:false, workedLate:false, sugarCrash:false, dayEndMode:null},
+  seenEvents:[], log:[], highlight:null, phase:'playing',
+  weekEventDay: randInt(1,4),
+  firstActionDone:false,
+  _leftBefore1830:false, _fainted:false
+ };
+}
+function getGame(characterId){ return App.saves[characterId]||null; }
+function setGame(characterId, state){ App.saves[characterId]=state; persistSaves(); }
+
+function getTraitSet(character){ return new Set(character.traits||[]); }
+function getCharacter(id){ return App.characters.find(c=>c.id===id); }
+
+/* ====================== CHARACTER SVG ====================== */
+function hairShape(style, skinColor, hairColor){
+ switch(style){
+  case 'short': return `<path d="M -26 -8 Q -28 -38 0 -40 Q 28 -38 26 -8 Q 20 -22 0 -24 Q -20 -22 -26 -8 Z" fill="${hairColor}" stroke="var(--stroke)" stroke-width="2"/>`;
+  case 'spiky': return `<path d="M -26 -6 Q -28 -30 -18 -32 L -14 -22 L -8 -36 L 0 -22 L 8 -36 L 14 -22 L 18 -32 Q 28 -30 26 -6 Q 18 -24 0 -26 Q -18 -24 -26 -6 Z" fill="${hairColor}" stroke="var(--stroke)" stroke-width="2"/>`;
+  case 'bob': return `<path d="M -27 20 Q -32 -10 -24 -26 Q -10 -40 0 -40 Q 10 -40 24 -26 Q 32 -10 27 20 Q 22 2 20 -6 L 20 10 L 14 10 L 14 -14 Q 0 -22 -14 -14 L -14 10 L -20 10 L -20 -6 Q -22 2 -27 20 Z" fill="${hairColor}" stroke="var(--stroke)" stroke-width="2"/>`;
+  case 'ponytail': return `<path d="M -26 -8 Q -28 -38 0 -40 Q 28 -38 26 -8 Q 20 -22 0 -24 Q -20 -22 -26 -8 Z" fill="${hairColor}" stroke="var(--stroke)" stroke-width="2"/><path d="M 22 -14 Q 40 -10 34 18 Q 30 26 24 20 Q 30 0 18 -14 Z" fill="${hairColor}" stroke="var(--stroke)" stroke-width="2"/>`;
+  case 'curly': return `<circle cx="-24" cy="-16" r="10" fill="${hairColor}" stroke="var(--stroke)" stroke-width="2"/><circle cx="-10" cy="-28" r="11" fill="${hairColor}" stroke="var(--stroke)" stroke-width="2"/><circle cx="8" cy="-29" r="11" fill="${hairColor}" stroke="var(--stroke)" stroke-width="2"/><circle cx="23" cy="-15" r="10" fill="${hairColor}" stroke="var(--stroke)" stroke-width="2"/><circle cx="0" cy="-34" r="10" fill="${hairColor}" stroke="var(--stroke)" stroke-width="2"/>`;
+  case 'bald': return `<ellipse cx="-8" cy="-22" rx="6" ry="3" fill="#fff" opacity="0.5"/>`;
+  default: return '';
+ }
+}
+function accessoryShape(acc){
+ switch(acc){
+  case 'glasses': return `<circle cx="-11" cy="-2" r="8" fill="none" stroke="var(--stroke)" stroke-width="2.5"/><circle cx="11" cy="-2" r="8" fill="none" stroke="var(--stroke)" stroke-width="2.5"/><line x1="-3" y1="-2" x2="3" y2="-2" stroke="var(--stroke)" stroke-width="2.5"/>`;
+  case 'headphones': return `<path d="M -26 -4 Q -26 -34 0 -34 Q 26 -34 26 -4" fill="none" stroke="var(--stroke)" stroke-width="3"/><rect x="-30" y="-10" width="9" height="16" rx="4" fill="#444" stroke="var(--stroke)" stroke-width="2"/><rect x="21" y="-10" width="9" height="16" rx="4" fill="#444" stroke="var(--stroke)" stroke-width="2"/>`;
+  case 'badge': return `<line x1="0" y1="36" x2="0" y2="52" stroke="#ccc" stroke-width="2"/><rect x="-8" y="52" width="16" height="20" rx="2" fill="#fff" stroke="var(--stroke)" stroke-width="2"/>`;
+  case 'mug': return `<rect x="24" y="58" width="14" height="16" rx="2" fill="#fff" stroke="var(--stroke)" stroke-width="2"/><path d="M 38 62 Q 46 62 46 68 Q 46 74 38 72" fill="none" stroke="var(--stroke)" stroke-width="2"/>`;
+  default: return '';
+ }
+}
+function outfitShape(outfit, color){
+ switch(outfit){
+  case 'shirt': return `<path d="M -22 36 Q -26 80 -22 100 L 22 100 Q 26 80 22 36 Q 12 46 0 46 Q -12 46 -22 36 Z" fill="#fff" stroke="var(--stroke)" stroke-width="2"/><path d="M -6 36 L 0 46 L 6 36 L 0 54 Z" fill="${color}" stroke="var(--stroke)" stroke-width="1.5"/>`;
+  case 'hoodie': return `<path d="M -24 34 Q -28 80 -24 100 L 24 100 Q 28 80 24 34 Q 12 48 0 48 Q -12 48 -24 34 Z" fill="${color}" stroke="var(--stroke)" stroke-width="2"/><path d="M -14 36 Q 0 24 14 36" fill="none" stroke="var(--stroke)" stroke-width="2"/>`;
+  case 'suit': return `<path d="M -22 36 Q -26 80 -22 100 L 22 100 Q 26 80 22 36 Q 12 46 0 46 Q -12 46 -22 36 Z" fill="${color}" stroke="var(--stroke)" stroke-width="2"/><path d="M -8 38 L 0 50 L 8 38 L 10 60 L -10 60 Z" fill="#fff" stroke="var(--stroke)" stroke-width="1.5"/>`;
+  case 'sweater': return `<path d="M -24 34 Q -28 80 -24 100 L 24 100 Q 28 80 24 34 Q 12 48 0 48 Q -12 48 -24 34 Z" fill="${color}" stroke="var(--stroke)" stroke-width="2"/><path d="M -16 70 L -8 62 L 0 70 L 8 62 L 16 70" fill="none" stroke="#fff" stroke-width="2"/>`;
+  case 'tshirt': return `<path d="M -22 36 Q -26 80 -22 100 L 22 100 Q 26 80 22 36 Q 12 46 0 46 Q -12 46 -22 36 Z" fill="${color}" stroke="var(--stroke)" stroke-width="2"/><circle cx="0" cy="68" r="8" fill="#fff" opacity="0.85"/><circle cx="-3" cy="66" r="1.5" fill="var(--stroke)"/><circle cx="3" cy="66" r="1.5" fill="var(--stroke)"/><path d="M -3 71 Q 0 74 3 71" stroke="var(--stroke)" stroke-width="1.5" fill="none"/>`;
+  case 'dress': return `<path d="M -22 36 Q -34 90 -30 100 L 30 100 Q 34 90 22 36 Q 12 46 0 46 Q -12 46 -22 36 Z" fill="${color}" stroke="var(--stroke)" stroke-width="2"/>`;
+  default: return '';
+ }
+}
+function faceShape(mood, energy){
+ const low = energy<20;
+ let eyes, brows, mouth;
+ if(low){
+  eyes = `<path d="M -14 -2 Q -11 2 -8 -2" stroke="var(--stroke)" stroke-width="2.5" fill="none"/><path d="M 8 -2 Q 11 2 14 -2" stroke="var(--stroke)" stroke-width="2.5" fill="none"/>
+   <path d="M -16 4 Q -11 7 -6 4" stroke="var(--stroke)" stroke-width="1.5" fill="none" opacity="0.4"/><path d="M 6 4 Q 11 7 16 4" stroke="var(--stroke)" stroke-width="1.5" fill="none" opacity="0.4"/>`;
+ } else {
+  eyes = `<circle cx="-11" cy="-2" r="3.2" fill="var(--stroke)"/><circle cx="-10" cy="-3" r="1" fill="#fff"/><circle cx="11" cy="-2" r="3.2" fill="var(--stroke)"/><circle cx="12" cy="-3" r="1" fill="#fff"/>`;
+ }
+ if(mood>60) brows = `<path d="M -16 -12 Q -11 -15 -6 -12" stroke="var(--stroke)" stroke-width="2" fill="none"/><path d="M 6 -12 Q 11 -15 16 -12" stroke="var(--stroke)" stroke-width="2" fill="none"/>`;
+ else if(mood<30) brows = `<path d="M -16 -10 Q -11 -8 -6 -11" stroke="var(--stroke)" stroke-width="2" fill="none"/><path d="M 6 -11 Q 11 -8 16 -10" stroke="var(--stroke)" stroke-width="2" fill="none"/>`;
+ else brows = `<path d="M -16 -11 L -6 -11" stroke="var(--stroke)" stroke-width="2" fill="none"/><path d="M 6 -11 L 16 -11" stroke="var(--stroke)" stroke-width="2" fill="none"/>`;
+ if(mood>60) mouth = `<path d="M -9 8 Q 0 16 9 8" stroke="var(--stroke)" stroke-width="2.5" fill="none"/>`;
+ else if(mood<30) mouth = `<path d="M -9 12 Q 0 6 9 12" stroke="var(--stroke)" stroke-width="2.5" fill="none"/>`;
+ else mouth = `<path d="M -8 9 L 8 9" stroke="var(--stroke)" stroke-width="2.5" fill="none"/>`;
+ return eyes+brows+mouth;
+}
+function plumbobColor(mood){ return mood>60?'var(--success)':mood>=30?'var(--warn)':'var(--danger)'; }
+
+function buildCharacterSVG(look, opts){
+ opts=opts||{};
+ const mood = opts.mood!=null?opts.mood:70;
+ const energy = opts.energy!=null?opts.energy:80;
+ const skinColor = SKIN_TONES[look.skin]||SKIN_TONES[0];
+ const hairColor = HAIR_COLORS[look.hairColor]||HAIR_COLORS[0];
+ const outfitColor = OUTFIT_COLORS[look.outfitColor]||OUTFIT_COLORS[0];
+ const idAttr = opts.id?`id="${opts.id}"`:'';
+ const cls = opts.cls||'';
+ return `<svg ${idAttr} class="${cls}" viewBox="-50 -55 100 135" xmlns="http://www.w3.org/2000/svg">
+  ${opts.noPlumbob?'':`<path d="M 0 -62 L 7 -52 L 0 -42 L -7 -52 Z" fill="${plumbobColor(mood)}" stroke="var(--stroke)" stroke-width="1.5"/>`}
+  <ellipse cx="0" cy="104" rx="26" ry="6" fill="rgba(0,0,0,0.15)"/>
+  ${outfitShape(look.outfit, outfitColor)}
+  <ellipse cx="-24" cy="50" rx="7" ry="16" fill="${skinColor}" stroke="var(--stroke)" stroke-width="2"/>
+  <ellipse cx="24" cy="50" rx="7" ry="16" fill="${skinColor}" stroke="var(--stroke)" stroke-width="2"/>
+  <circle cx="0" cy="0" r="34" fill="${skinColor}" stroke="var(--stroke)" stroke-width="2.5"/>
+  ${faceShape(mood, energy)}
+  ${hairShape(look.hair, skinColor, hairColor)}
+  ${accessoryShape(look.accessory)}
+ </svg>`;
+}
+
+/* ====================== GAME LOGIC ====================== */
+const ACTION_DEFS=[
+ {id:'work', icon:'💻', label:'Работать', key:'1'},
+ {id:'meeting', icon:'👥', label:'Совещание', key:'2'},
+ {id:'coffee', icon:'☕', label:'Кофе', key:'3'},
+ {id:'lunch', icon:'🍲', label:'Обед', key:'4'},
+ {id:'chat', icon:'💬', label:'Поболтать', key:'5'},
+ {id:'home', icon:'🏠', label:'Уйти домой', key:'6'},
+ {id:'beer', icon:'🍺', label:'Пиво после работы', key:'7'}
+];
+
+function statColor(value, invert){
+ const v = invert? 100-value : value;
+ return v>60?'var(--success)': v>=30?'var(--warn)':'var(--danger)';
+}
+function round1(fx){ const o={}; for(const k in fx){ o[k]=Math.round(fx[k]); } return o; }
+
+function applyEffects(state, character, fx, atMinutes){
+ const traits=getTraitSet(character);
+ const f=Object.assign({}, fx);
+ const hungryAngry = state.stats.hunger>=80;
+ if(f.energy && f.energy<0){
+  let mult=1;
+  if(traits.has('earlyBird')){ if(atMinutes<720) mult*=0.7; else if(atMinutes>=1080) mult*=1.3; }
+  if(traits.has('nightOwl')){ if(atMinutes<660) mult*=1.3; else if(atMinutes>=900) mult*=0.7; }
+  if(hungryAngry) mult*=1.5;
+  f.energy = f.energy*mult;
+ }
+ if(hungryAngry){ f.mood = (f.mood||0)-5; }
+ if(f.reputation && traits.has('anxious')){ f.reputation = f.reputation*1.5; }
+ return round1(f);
+}
+
+function mutateStats(state, fx, container){
+ const deltas={};
+ ['energy','mood','hunger','reputation'].forEach(k=>{
+  if(fx[k]){
+   const before=state.stats[k];
+   let after=before+fx[k];
+   after=clamp(after,0,100);
+   state.stats[k]=after;
+   const real=after-before;
+   if(real!==0){ deltas[k]=real; if(container) spawnPopup(k, real); }
+  }
+ });
+ return deltas;
+}
+
+function addLog(state, icon, text, fx){
+ const parts=[];
+ if(fx){
+  const map={energy:'⚡',mood:'😊',hunger:'🍔',reputation:'⭐'};
+  for(const k in map){ if(fx[k]){ parts.push(map[k]+(fx[k]>0?'+':'')+fx[k]); } }
+ }
+ state.log.unshift({t:state.minutes, icon, text, fxText:parts.join(' '), score: fx?Object.values(fx).reduce((a,b)=>a+Math.abs(b||0),0):0});
+ if(state.log.length>30) state.log.length=30;
+}
+
+function advanceTime(state, character, minutesDelta){
+ const traits=getTraitSet(character);
+ const oldMinutes=state.minutes;
+ state.minutes += minutesDelta;
+ const hours = minutesDelta/60;
+ const hungerRate = traits.has('gourmet')?8:6;
+ state.stats.hunger = clamp(state.stats.hunger + hungerRate*hours, 0, 100);
+ state.stats.energy = clamp(state.stats.energy - 2*hours, 0, 100);
+ for(let i=state.buffs.length-1;i>=0;i--){
+  const b=state.buffs[i];
+  if(b.until!=null && oldMinutes<b.until && state.minutes>=b.until){
+   if(b.id==='caffeine'){ state.stats.energy=clamp(state.stats.energy-10,0,100); addLog(state,'☕','Кофеиновый откат догнал тебя.',{energy:-10}); }
+   state.buffs.splice(i,1);
+  }
+ }
+ if(traits.has('coffeeLover') && !state.flags.coffeePenaltyApplied && state.dailyCounters.coffee===0 && oldMinutes<660 && state.minutes>=660){
+  state.stats.mood=clamp(state.stats.mood-10,0,100);
+  state.flags.coffeePenaltyApplied=true;
+  addLog(state,'☕','Кофемана трясёт без кофе.',{mood:-10});
+ }
+ if(state.stats.hunger>=100 && state.phase==='playing' && !state._fainted){
+  state._fainted=true;
+  state.minutes+=120;
+  state.stats.reputation=clamp(state.stats.reputation-10,0,100);
+  state.stats.hunger=70;
+  addLog(state,'😵','Обморок у кулера. Коллеги накапали тебе воды, кто-то сфотографировал.',{reputation:-10});
+ } else { state._fainted=false; }
+}
+
+function hasOpenTasks(state){ return state.tasks.some(t=>!t.completed); }
+function firstOpenTask(state){ return state.tasks.find(t=>!t.completed); }
+function addProgress(state, character, amount){
+ const t=firstOpenTask(state);
+ if(!t) return;
+ let amt=amount;
+ if(state.stats.mood<20) amt*=0.5;
+ t.progress += amt;
+ if(t.progress>=t.size){
+  t.completed=true;
+  state.weekCounters.tasksDone++;
+  const traits=getTraitSet(character);
+  let repFx={reputation:5};
+  if(traits.has('anxious')) repFx={reputation:5, mood:5};
+  const applied=applyEffects(state, character, repFx, state.minutes);
+  mutateStats(state, applied, true);
+  addLog(state,'✅',`Поручение выполнено: «${t.title}»`, applied);
+ }
+}
+function addNewTask(character, state, sizeOverride){
+ const pool=taskPoolFor(character.position);
+ const title=pick(pool);
+ const t={id:uid('t'), title, size:sizeOverride||randInt(1,3), progress:0, day:state.day, overdue:false, completed:false};
+ state.tasks.push(t);
+ state.weekCounters.tasksTotal++;
+ return t;
+}
+
+function computeActionAvailability(state, character){
+ const traits=getTraitSet(character);
+ const m=state.minutes;
+ const res={};
+ const canFinishBy21=(dur)=> m+dur<=1260;
+ res.work={enabled:true, reason:''};
+ if(state.stats.mood<=0 && hasOpenTasks(state)){ res.work={enabled:false, reason:'Настроение на нуле. Сначала приди в себя.'}; }
+ else if(!canFinishBy21(60)){ res.work={enabled:false, reason:'Не успеть до конца дня.'}; }
+ res.meeting={enabled:true, reason:''};
+ if(m>=1080){ res.meeting={enabled:false, reason:'Совещания только с 09:00 до 18:00.'}; }
+ else if(!canFinishBy21(60)){ res.meeting={enabled:false, reason:'Не успеть до конца дня.'}; }
+ res.coffee={enabled:true, reason:''};
+ if(state.flags.coffeeBroken){ res.coffee={enabled:false, reason:'Кофемашина сломана до конца дня.'}; }
+ else if(!canFinishBy21(15)){ res.coffee={enabled:false, reason:'Не успеть до конца дня.'}; }
+ res.lunch={enabled:true, reason:''};
+ if(state.dailyCounters.lunch){ res.lunch={enabled:false, reason:'Обед уже был сегодня.'}; }
+ else if(m<720 || m>=900){ res.lunch={enabled:false, reason:'Обед только с 12:00 до 15:00.'}; }
+ res.chat={enabled:true, reason:''};
+ if(!canFinishBy21(30)){ res.chat={enabled:false, reason:'Не успеть до конца дня.'}; }
+ res.home={enabled:true, reason:''};
+ res.beer={enabled:true, reason:''};
+ if(m<1080 && state.stats.energy>0){ res.beer={enabled:false, reason:'Доступно после 18:00 (или когда кончатся силы).'}; }
+ return res;
+}
+
+function performWork(state, character){
+ const traits=getTraitSet(character);
+ const overtime = state.minutes>=1080;
+ const noTasks = !hasOpenTasks(state);
+ let base, duration=60, progress=1, extraLog='';
+ if(noTasks){
+  base={energy:-5, mood:5, hunger:0, reputation:0};
+ } else {
+  base={energy: traits.has('introvert')?-10:-15, mood:-3, hunger:4, reputation:0};
+  if(overtime){
+   base.reputation+=3;
+   if(traits.has('workaholic')){ /* no penalty */ }
+   else if(traits.has('nightOwl')){ base.mood+=5; }
+   else { base.mood-=5; }
+   state.weekCounters.overtimeMin+=60;
+   state.flags.workedLate = state.flags.workedLate || state.minutes>=1200;
+  }
+  if(traits.has('workaholic') && rand()<0.25){ progress=2; }
+  else if(traits.has('procrastinator')){
+   if(state.minutes>=1020 && state.minutes<1080){ progress=2; }
+   else if(rand()<0.25){ progress=0; base.mood=(base.mood||0)+10; extraLog=' Посмотрел одно видео… и ещё одно.'; }
+  }
+ }
+ if(state.flags.sugarCrash){ duration+=30; state.flags.sugarCrash=false; extraLog+=' Сахарная кома замедлила процесс.'; }
+ const applied=applyEffects(state, character, base, state.minutes);
+ advanceTime(state, character, duration);
+ const deltas=mutateStats(state, applied, true);
+ addLog(state, '💻', (noTasks?'Сделал вид, что работаешь.':'Поработал за столом.')+extraLog, deltas);
+ if(!noTasks) addProgress(state, character, progress);
+ return true;
+}
+function performMeeting(state, character){
+ const traits=getTraitSet(character);
+ const tier=state.dailyCounters.meetings;
+ let moodPenalty = tier===0?-10: tier===1?-15:-20;
+ if(traits.has('introvert')) moodPenalty-=5;
+ let repGain = tier>=2?5:10;
+ if(traits.has('careerist')) repGain+=5;
+ let duration=60;
+ let extra='';
+ if(rand()<0.2){ duration+=30; extra=' Совещание затянулось.'; }
+ const base={energy:-5, mood:moodPenalty, hunger:3, reputation:repGain};
+ const applied=applyEffects(state, character, base, state.minutes);
+ advanceTime(state, character, duration);
+ const deltas=mutateStats(state, applied, true);
+ state.dailyCounters.meetings++; state.weekCounters.meetings++;
+ addLog(state,'👥','Совещание в переговорной.'+extra, deltas);
+ return true;
+}
+function performCoffee(state, character){
+ const traits=getTraitSet(character);
+ const freeLimit = traits.has('coffeeLover')?5:3;
+ const idx=state.dailyCounters.coffee;
+ let energyGain, moodFx, note='';
+ if(idx<freeLimit){ energyGain = traits.has('coffeeLover')?30:20; moodFx=3; }
+ else { energyGain=10; moodFx=-10; note=' Руки трясутся.'; }
+ if(state.flags.hangover && !state.flags.hangoverHalfCoffeeUsed){ energyGain=Math.round(energyGain/2); state.flags.hangoverHalfCoffeeUsed=true; note+=' Кофе еле спасает после вчерашнего.'; }
+ const base={energy:energyGain, mood:moodFx, hunger:1, reputation:0};
+ const applied=applyEffects(state, character, base, state.minutes);
+ advanceTime(state, character, 15);
+ const deltas=mutateStats(state, applied, true);
+ state.dailyCounters.coffee++; state.weekCounters.coffee++;
+ state.buffs=state.buffs.filter(b=>b.id!=='caffeine');
+ state.buffs.push({id:'caffeine', until: state.minutes+120});
+ addLog(state,'☕','Кофе. Жизнь налаживается.'+note, deltas);
+ return true;
+}
+function performLunch(state, character){
+ const traits=getTraitSet(character);
+ const base = traits.has('gourmet')? {energy:5, mood:15, hunger:-80, reputation:0} : {energy:5, mood:8, hunger:-60, reputation:0};
+ const applied=applyEffects(state, character, base, state.minutes);
+ advanceTime(state, character, 60);
+ const deltas=mutateStats(state, applied, true);
+ state.dailyCounters.lunch=true;
+ addLog(state,'🍲','Обед на кухне.', deltas);
+ return true;
+}
+function performChat(state, character){
+ const traits=getTraitSet(character);
+ const idx=state.dailyCounters.chats;
+ let moodFx=15, repFx=2;
+ if(traits.has('socialite')){ moodFx=25; repFx=5; }
+ else if(traits.has('introvert')){ moodFx=5; }
+ if(traits.has('careerist')) moodFx-=3;
+ if(idx>=2 && !traits.has('socialite')) repFx-=5;
+ const base={energy:-3, mood:moodFx, hunger:2, reputation:repFx};
+ const applied=applyEffects(state, character, base, state.minutes);
+ advanceTime(state, character, 30);
+ const deltas=mutateStats(state, applied, true);
+ state.dailyCounters.chats++; state.weekCounters.chats++;
+ const colleague=pick(NPCS).name;
+ const line=pick(CHAT_LINES);
+ spawnBubble(line);
+ addLog(state,'💬',`Поболтал с коллегой (${colleague}): «${line}»`, deltas);
+ return true;
+}
+
+function startBossEventIfNeeded(state){
+ if(state.stats.reputation>0) return false;
+ if(state.flags.bossWarnings===0){
+  state.flags.bossWarnings=1;
+  openEventModal(BOSS_EVENT, true);
+  return true;
+ } else {
+  state.phase='fired';
+  saveCurrent();
+  openWeekResults(true);
+  return true;
+ }
+}
+
+function postActionChecks(state, character){
+ if(state.stats.energy<=0 && state.phase==='playing'){
+  if(state.minutes<1020){
+   const applied=applyEffects(state, character, {reputation:-5}, state.minutes);
+   mutateStats(state, applied, true);
+   addLog(state,'🥴','Ушёл, держась за стенку.', applied);
+  }
+  openEnergyOutModal();
+  return;
+ }
+ if(state.minutes>=1260 && state.phase==='playing'){
+  addLog(state,'🔒','Охранник выключил свет.', null);
+  finishDay(state, character, 'forced');
+  return;
+ }
+ if(state.stats.reputation<=0 && state.phase==='playing'){
+  if(startBossEventIfNeeded(state)) return;
+ }
+ maybeTriggerEvent(state, character);
+ saveCurrent();
+ updateGameUI();
+}
+
+function maybeTriggerEvent(state, character){
+ if(state.phase!=='playing') return;
+ if(state.dailyCounters.events>=3) return;
+ if(!state.flags.urgentEventDone && state.day===state.weekEventDay && state.minutes>=1050 && state.minutes<1260){
+  state.flags.urgentEventDone=true;
+  state.minutes = Math.min(state.minutes, 1079);
+  state.dailyCounters.events++; state.weekCounters.events++;
+  openEventModal(EVENTS[0], false);
+  return;
+ }
+ const traits=getTraitSet(character);
+ const luckBonus = traits.has('lucky')?0.2:0;
+ if(rand()<0.3){
+  let candidates=EVENTS.slice(1).filter(e=> !e.condition || e.condition(state));
+  let fresh=candidates.filter(e=>!state.seenEvents.includes(e.id));
+  let pool = fresh.length? fresh : candidates;
+  if(pool.length===0) return;
+  const ev=pick(pool);
+  if(!state.seenEvents.includes(ev.id)) state.seenEvents.push(ev.id);
+  state.dailyCounters.events++; state.weekCounters.events++;
+  openEventModal(ev, false, luckBonus);
+ }
+}
+
+function resolveEventOption(ev, optIndex, character, state, luckBonus){
+ const opt=ev.options[optIndex];
+ let fx=Object.assign({}, opt.fx||{});
+ let texts=[opt.text].filter(Boolean);
+ let flags=Object.assign({}, opt.flags||{});
+ let addTask=opt.addTask||false;
+ let addTaskDone=opt.addTaskDone||null;
+ let progressAdd=opt.progress||0;
+ let setRepRange=opt.setReputation||null;
+ if(opt.outcomes && opt.outcomes.length){
+  let roll=rand();
+  if(luckBonus){ roll=Math.max(0, roll-luckBonus); }
+  let cum=0, chosen=opt.outcomes[opt.outcomes.length-1];
+  for(const o of opt.outcomes){ cum+=o.chance; if(roll<cum){ chosen=o; break; } }
+  if(chosen.fx) for(const k in chosen.fx){ fx[k]=(fx[k]||0)+chosen.fx[k]; }
+  if(chosen.text) texts.push(chosen.text);
+  if(chosen.flags) Object.assign(flags, chosen.flags);
+  if(chosen.addTask) addTask=true;
+ }
+ if(flags.coffeeBroken) state.flags.coffeeBroken=true;
+ if(flags.sugarCrash) state.flags.sugarCrash=true;
+ if(flags.lunchUsed) state.dailyCounters.lunch=true;
+ const applied=applyEffects(state, character, fx, state.minutes);
+ const deltas=mutateStats(state, applied, true);
+ if(setRepRange){ state.stats.reputation = randInt(setRepRange[0], setRepRange[1]); }
+ if(progressAdd) addProgress(state, character, progressAdd);
+ if(addTask) addNewTask(character, state);
+ if(addTaskDone){
+  const t={id:uid('t'), title:addTaskDone.title, size:addTaskDone.size||1, progress:addTaskDone.size||1, day:state.day, overdue:false, completed:true};
+  state.tasks.push(t); state.weekCounters.tasksTotal++; state.weekCounters.tasksDone++;
+ }
+ addLog(state, '📌', ev.title+': '+texts.join(' '), deltas);
+ state.highlight = pickHighlight(state, ev.title+': '+texts.join(' '), deltas);
+ return {texts, deltas};
+}
+function pickHighlight(state, text, deltas){
+ const score = deltas? Object.values(deltas).reduce((a,b)=>a+Math.abs(b),0) : 0;
+ if(!state.highlight || score>=state.highlight.score){ return {text, score}; }
+ return state.highlight;
+}
+
+function finishDay(state, character, mode){
+ state.flags.dayEndMode = mode;
+ if(state.day===4){ state.phase='weekEnd'; saveCurrent(); openWeekResults(false); }
+ else { state.phase='dayEnd'; saveCurrent(); openDaySummary(); }
+}
+function goHomeToSleep(state, character, mode){
+ const traits=getTraitSet(character);
+ if(traits.has('workaholic') && state.minutes<1140){
+  state.stats.mood=clamp(state.stats.mood-5,0,100);
+  addLog(state,'😣','Муки совести по дороге домой.', {mood:-5});
+ }
+ state._leftBefore1830 = state.minutes<1110;
+ finishDay(state, character, mode||'home');
+}
+function performHome(state, character, confirmed){
+ if(state.minutes<1080 && !confirmed){ return 'needConfirm'; }
+ if(state.minutes<1080 && confirmed){
+  const applied=applyEffects(state, character, {reputation:-15}, state.minutes);
+  mutateStats(state, applied, true);
+  addLog(state,'🏠','Ушёл пораньше. Аркадий Борисович всё видел.', applied);
+ }
+ goHomeToSleep(state, character, 'home');
+ return 'done';
+}
+function performBeerChoice(state, character, choiceIdx){
+ const traits=getTraitSet(character);
+ const opts=[
+  {mood:10, label:'Одну и домой'},
+  {mood:20, label:'Ну, по второй'},
+  {mood:30, label:'Ещё по одной… и ещё…'}
+ ];
+ const c=opts[choiceIdx];
+ const applied=applyEffects(state, character, {mood:c.mood}, state.minutes);
+ mutateStats(state, applied, true);
+ state.weekCounters.beers++;
+ let hangover=false;
+ if(choiceIdx===2){
+  hangover = !(traits.has('ironLiver') && rand()<0.5);
+  state.flags.hangover = hangover;
+ }
+ addLog(state,'🍺', c.label+(hangover?' Завтра будет тяжело.':''), applied);
+ finishDay(state, character, 'beer');
+}
+
+function nextDay(state, character){
+ const traits=getTraitSet(character);
+ const oldDay=state.day;
+ state.tasks.forEach(t=>{
+  if(!t.completed && t.day===oldDay){
+   t.overdue=true; t.day=oldDay+1;
+   const applied=applyEffects(state, character, {reputation:-5}, state.minutes);
+   mutateStats(state, applied, false);
+   addLog(state,'🔥',`Поручение просрочено: «${t.title}»`, applied);
+  }
+ });
+ const newDay=oldDay+1;
+ state.day=newDay;
+ const newTasks=generateTasksForDay(character.position, newDay);
+ state.tasks = state.tasks.concat(newTasks);
+ state.weekCounters.tasksTotal += newTasks.length;
+
+ let energy=75;
+ if(state.flags.dayEndMode==='home' && state._leftBefore1830) energy+=10;
+ if(state.flags.workedLate) energy-=10;
+ if(state.flags.hangover) energy-=25;
+ if(traits.has('earlyBird')) energy+=5;
+ energy=clamp(energy,0,100);
+ state.stats.energy=energy;
+ state.stats.hunger=25;
+ let mood=Math.min(90, state.stats.mood+10);
+ if(newDay===4) mood=Math.min(100, mood+15);
+ state.stats.mood=clamp(mood,0,100);
+
+ let startMinutes=540;
+ if(state.flags.hangover){
+  startMinutes=570;
+  const applied=applyEffects(state, character, {reputation:-5}, startMinutes);
+  mutateStats(state, applied, false);
+  addLog(state,'🥴','Опоздал после вчерашнего.', applied);
+ }
+ state.minutes=startMinutes;
+ state.flags.hangover=false;
+ state.flags.coffeeBroken=false;
+ state.flags.coffeePenaltyApplied=false;
+ state.flags.hangoverHalfCoffeeUsed=false;
+ state.flags.workedLate=false;
+ state.flags.sugarCrash=false;
+ state._leftBefore1830=false;
+ state.dailyCounters={coffee:0, meetings:0, chats:0, lunch:false, events:0};
+ state.buffs=[];
+ state.phase='playing';
+ addLog(state,'🌅', MORNING_GREETS[newDay]||'Новый день.', null);
+ saveCurrent();
+}
+
+function computeTitle(state){
+ if(state.phase==='fired') return TITLES.freeSpirit;
+ const wc=state.weekCounters;
+ const pct = wc.tasksTotal? wc.tasksDone/wc.tasksTotal : 0;
+ if(pct>=0.85 && state.stats.reputation>=70) return TITLES.legend;
+ if((wc.tasksTotal>0 && wc.tasksDone>=wc.tasksTotal) || wc.overtimeMin>=360) return TITLES.responsible;
+ if(wc.coffee>=12) return TITLES.coffeeSurvivor;
+ if(wc.meetings>=8) return TITLES.meetingMaster;
+ if(wc.beers>=4 || wc.chats>=10) return TITLES.partySoul;
+ return TITLES.quietSurvivor;
+}
+
+function startWeek(character, freshState){
+ let state = freshState || newGameState(character);
+ setGame(character.id, state);
+ character.weeksPlayed = (character.weeksPlayed||0);
+ persistCharacters();
+}
+function restartWeek(character){
+ const state=newGameState(character);
+ setGame(character.id, state);
+}
+function saveCurrent(){
+ if(!App.currentCharacterId) return;
+ const state=getGame(App.currentCharacterId);
+ if(state) setGame(App.currentCharacterId, state);
+}
+
+/* ====================== RENDER: CHARACTER SELECT ====================== */
+function statusForCharacter(character){
+ const save=getGame(character.id);
+ if(!save) return 'Неделя не начата';
+ if(save.phase==='weekEnd' || save.phase==='fired'){
+  if(character.bestTitle && TITLES[character.bestTitle]) return 'Лучшее звание: '+TITLES[character.bestTitle].name;
+  return 'Неделя завершена';
+ }
+ return DAY_NAMES[save.day]+', '+fmtTime(save.minutes)+' — продолжить';
+}
+function renderSelect(){
+ const root=document.getElementById('screen-select');
+ const last=App.settings.lastCharacterId;
+ let cards=App.characters.map(c=>{
+  const portrait=buildCharacterSVG(c.look, {mood:70, energy:80});
+  const titlesIcons = (c.titles||[]).map(tid=>TITLES[tid]?TITLES[tid].icon:'').join(' ');
+  return `<div class="char-card ${c.id===last?'last':''}">
+   ${portrait}
+   <h3>${escapeHtml(c.name)}</h3>
+   <div class="pos">${escapeHtml(c.position)}</div>
+   <div class="status">${escapeHtml(statusForCharacter(c))}</div>
+   <div class="titles">${titlesIcons}</div>
+   <div class="row">
+    <button class="btn primary" data-act="select-char" data-value="${c.id}">Играть</button>
+   </div>
+   <div class="row">
+    <button class="btn ghost" data-act="edit-char" data-value="${c.id}">Изменить</button>
+    <button class="btn ghost" data-act="delete-char" data-value="${c.id}">Удалить</button>
+   </div>
+  </div>`;
+ }).join('');
+ const canAddMore = App.characters.length<6;
+ cards += `<div class="char-card new-char-card" style="${canAddMore?'':'opacity:.4;cursor:not-allowed;'}" ${canAddMore?'data-act="new-char"':'title="Максимум 6 сотрудников"'}>+</div>`;
+ root.innerHTML = `<div class="select-title">Офисный SIMS: дожить до пятницы</div>
+  <div class="char-grid">${cards}</div>`;
+}
+
+/* ====================== RENDER: CREATOR ====================== */
+function creatorValid(){
+ const d=App.creatorDraft;
+ if(!d) return false;
+ if(d.name.trim().length<2 || d.name.trim().length>20) return false;
+ if(d.position==='Своя…' && (!d.customPosition || !d.customPosition.trim())) return false;
+ if(d.traits.length!==2) return false;
+ return true;
+}
+function swatchRow(field, values, isColor){
+ const d=App.creatorDraft;
+ return `<div class="swatch-row">${values.map((v,i)=>{
+  const sel=d.look[field]===(isColor?i:v[0]);
+  const bg = isColor? v : (v[2]||'#ccc');
+  const label = isColor? '' : v[1];
+  if(isColor){
+   return `<button class="swatch ${sel?'selected':''}" style="background:${v}" data-act="set-look" data-field="${field}" data-value="${i}" aria-label="${field} ${i}"></button>`;
+  }
+  return `<button class="chip ${sel?'selected':''}" data-act="set-look" data-field="${field}" data-value="${v[0]}">${label}</button>`;
+ }).join('')}</div>`;
+}
+function renderCreator(){
+ const root=document.getElementById('screen-creator');
+ const d=App.creatorDraft;
+ const isEdit = !!App.creatorEditingId;
+ const preview = buildCharacterSVG(d.look, {mood:70, energy:80, cls:'idle-anim'});
+ const traitCards = TRAITS.map(t=>{
+  const selected = d.traits.includes(t.id);
+  const blockedBy = d.traits.find(id=> id!==t.id && (traitById(id).incompatible.includes(t.id)));
+  const disabled = !selected && (d.traits.length>=2 || blockedBy);
+  const title = blockedBy? `Несовместимо с «${traitById(blockedBy).name}»` : '';
+  return `<button class="trait-card ${selected?'selected':''}" data-act="toggle-trait" data-value="${t.id}" ${disabled?'disabled':''} title="${escapeHtml(title)}">
+   <b>${t.icon} ${t.name}</b>${t.desc}
+  </button>`;
+ }).join('');
+ const posOptions = POSITIONS.map(p=>`<option value="${p}" ${d.position===p?'selected':''}>${p}</option>`).join('')
+  + `<option value="Своя…" ${d.position==='Своя…'?'selected':''}>Своя…</option>`;
+ root.innerHTML = `
+  <div class="select-title" style="text-align:center;">${isEdit?'Изменить сотрудника':'Создание сотрудника'}</div>
+  <div class="creator-wrap">
+   <div class="creator-preview">
+    ${preview}
+    <button class="btn" data-act="randomize-char">🎲 Случайный сотрудник</button>
+    ${isEdit?'<div style="font-size:11px;opacity:.6;">Черты характера нельзя менять посреди недели — меняются только внешность, имя и должность.</div>':''}
+   </div>
+   <div class="creator-form">
+    <div class="field">
+     <label>Имя</label>
+     <div style="display:flex;gap:8px;">
+      <input type="text" id="input-name" value="${escapeHtml(d.name)}" maxlength="20" placeholder="2–20 символов">
+      <button class="btn" data-act="random-name">🎲</button>
+     </div>
+    </div>
+    <div class="field">
+     <label>Должность</label>
+     <select id="select-position">${posOptions}</select>
+     ${d.position==='Своя…'?`<input type="text" id="input-custom-position" value="${escapeHtml(d.customPosition)}" maxlength="25" placeholder="Своя должность">`:''}
+    </div>
+    <div class="field"><label>Тон кожи</label>${swatchRow('skin', SKIN_TONES, true)}</div>
+    <div class="field"><label>Причёска</label>${swatchRow('hair', HAIR_STYLES, false)}</div>
+    <div class="field"><label>Цвет волос</label>${swatchRow('hairColor', HAIR_COLORS, true)}</div>
+    <div class="field"><label>Одежда</label>${swatchRow('outfit', OUTFITS, false)}</div>
+    <div class="field"><label>Цвет одежды</label>${swatchRow('outfitColor', OUTFIT_COLORS, true)}</div>
+    <div class="field"><label>Аксессуар</label>${swatchRow('accessory', ACCESSORIES, false)}</div>
+    <div class="field">
+     <label>Черты характера (ровно 2) — выбрано ${d.traits.length}/2</label>
+     <div class="trait-grid">${traitCards}</div>
+    </div>
+   </div>
+  </div>
+  <div class="creator-actions">
+   ${isEdit?'<button class="btn" data-act="creator-cancel">Отмена</button>':''}
+   <button class="btn primary" data-act="creator-submit" ${creatorValid()?'':'disabled'}>${isEdit?'Сохранить':'Готово, на работу!'}</button>
+  </div>
+ `;
+ document.getElementById('input-name').addEventListener('input', e=>{ App.creatorDraft.name=e.target.value; refreshCreatorValidityOnly(); });
+ document.getElementById('select-position').addEventListener('change', e=>{ App.creatorDraft.position=e.target.value; renderCreator(); });
+ const cp=document.getElementById('input-custom-position');
+ if(cp) cp.addEventListener('input', e=>{ App.creatorDraft.customPosition=e.target.value; refreshCreatorValidityOnly(); });
+}
+function refreshCreatorValidityOnly(){
+ const btn=document.querySelector('#screen-creator [data-act="creator-submit"]');
+ if(btn) btn.disabled=!creatorValid();
+}
+
+/* ====================== RENDER: GAME ====================== */
+const ACTION_ZONE={work:'deskPlayer', meeting:'meeting', coffee:'coffee', lunch:'kitchen', chat:'chat', home:'door', beer:'door'};
+function windowColorFor(minutes){
+ if(minutes<1080) return '#AEE3F5';
+ if(minutes<1200) return '#F5B8A0';
+ return '#1B2A52';
+}
+function buildOfficeSceneSVG(){
+ const zonesRects = Object.entries(ZONES).map(([key,z])=>{
+  if(key==='deskPlayer'||key==='deskB'||key==='deskC'||key==='deskD'){
+   return `<g><rect x="${z.x-26}" y="${z.y-14}" width="52" height="30" rx="4" fill="#D8C4A8" stroke="var(--stroke)" stroke-width="2"/><rect x="${z.x-16}" y="${z.y-30}" width="32" height="20" rx="3" fill="#8FA7C7" stroke="var(--stroke)" stroke-width="2"/></g>`;
+  }
+  if(key==='meeting'){
+   return `<g><rect x="${z.x-45}" y="${z.y-30}" width="90" height="70" rx="6" fill="rgba(191,215,234,0.35)" stroke="var(--stroke)" stroke-width="2"/><rect x="${z.x-26}" y="${z.y+4}" width="52" height="14" rx="3" fill="#fff" stroke="var(--stroke)" stroke-width="2"/></g>`;
+  }
+  if(key==='coffee'){
+   return `<g><rect x="${z.x-24}" y="${z.y-10}" width="48" height="26" rx="4" fill="#C9A47A" stroke="var(--stroke)" stroke-width="2"/><rect x="${z.x-10}" y="${z.y-26}" width="20" height="18" rx="3" fill="#8B5E3C" stroke="var(--stroke)" stroke-width="2"/></g>`;
+  }
+  if(key==='kitchen'){
+   return `<g><rect x="${z.x-22}" y="${z.y-24}" width="26" height="40" rx="3" fill="#E7EFF5" stroke="var(--stroke)" stroke-width="2"/><rect x="${z.x+6}" y="${z.y-6}" width="20" height="16" rx="3" fill="#C9C9D2" stroke="var(--stroke)" stroke-width="2"/></g>`;
+  }
+  if(key==='chat'){
+   return `<g><ellipse cx="${z.x}" cy="${z.y+6}" rx="26" ry="10" fill="#B9D7C3" stroke="var(--stroke)" stroke-width="2"/></g>`;
+  }
+  if(key==='door'){
+   return `<g><rect x="${z.x-16}" y="${z.y-34}" width="32" height="54" rx="3" fill="#8B5E3C" stroke="var(--stroke)" stroke-width="2"/><text x="${z.x}" y="${z.y-38}" font-size="7" text-anchor="middle">Выход (в жизнь)</text></g>`;
+  }
+  return '';
+ }).join('');
+ const labels = Object.entries(ZONES).filter(([k,z])=>z.label).map(([k,z])=>`<text x="${z.x}" y="${z.y-34}" font-size="8" text-anchor="middle" fill="var(--text)" opacity="0.6">${z.label}</text>`).join('');
+ const colleagues = NPCS.map((n,i)=>{
+  const z=ZONES[n.zone]||ZONES.deskB;
+  const svg=buildCharacterSVG(n.look, {mood:70, energy:80, noPlumbob:true});
+  return `<g class="colleague-group" transform="translate(${z.x},${z.y}) scale(0.55)" style="animation-delay:${i*0.3}s">${svg}</g>`;
+ }).join('');
+ return `<svg viewBox="0 0 400 260" xmlns="http://www.w3.org/2000/svg">
+  <rect x="0" y="0" width="400" height="260" fill="var(--floor)"/>
+  <rect x="0" y="0" width="400" height="40" fill="var(--wall)"/>
+  <rect id="office-window" x="150" y="6" width="100" height="26" rx="4" fill="${windowColorFor(540)}" stroke="var(--stroke)" stroke-width="2"/>
+  ${zonesRects}
+  ${labels}
+  ${colleagues}
+  <g id="player-group" class="player-group" transform="translate(${ZONES.deskPlayer.x},${ZONES.deskPlayer.y}) scale(0.6)"></g>
+ </svg>`;
+}
+function renderGame(){
+ const character=getCharacter(App.currentCharacterId);
+ const root=document.getElementById('screen-game');
+ root.innerHTML = `<div class="game-grid">
+  <header class="game-header" id="game-header"></header>
+  <div class="office-wrap" id="office-wrap">${buildOfficeSceneSVG()}</div>
+  <aside class="sidebar">
+   <div class="panel tasks-panel" id="tasks-panel"><h4>Поручения дня</h4><div id="tasks-list"></div></div>
+   <div class="panel log-panel"><h4>Лента событий</h4><div class="log-list" id="log-list"></div></div>
+  </aside>
+  <div class="actions-bar" id="actions-bar"></div>
+ </div>`;
+ const player=document.getElementById('player-group');
+ player.innerHTML = buildCharacterSVG(character.look, {mood:70, energy:80, noPlumbob:false});
+ player.classList.add('anim-bob');
+ updateGameUI(true);
+}
+
+function updateGameUI(init){
+ const character=getCharacter(App.currentCharacterId);
+ const state=getGame(character.id);
+ if(!state) return;
+ renderHeader(character, state);
+ renderTasks(state);
+ renderLog(state);
+ renderActions(character, state);
+ const zoneKey = ACTION_ZONE[state._lastAction] || 'deskPlayer';
+ moveCharacterToZone(zoneKey, !init);
+ updateWindowColor(state.minutes);
+}
+function renderHeader(character, state){
+ const header=document.getElementById('game-header');
+ const s=state.stats;
+ const dots = DAY_SHORT.map((d,i)=>`<span class="${i<state.day?'done':(i===state.day?'today':'')}" title="${DAY_NAMES[i]}"></span>`).join('');
+ const buffsHtml = state.buffs.map(b=>{
+  if(b.id==='caffeine') return `<span class="buff-tag" title="Бодрость до ${fmtTime(b.until)}">☕ Кофеин</span>`;
+  return '';
+ }).join('') + (state.flags.hangover?'<span class="buff-tag" title="Похмелье">🥴 Похмелье</span>':'') + (state.flags.sugarCrash?'<span class="buff-tag" title="Сахарная кома">🍰 Сахарная кома</span>':'');
+ function bar(key, icon, invert){
+  const v=Math.round(s[key]);
+  return `<div class="stat" id="stat-${key}"><span>${icon}</span><div class="stat-bar"><div class="stat-fill" style="width:${v}%;background:${statColor(v,invert)}"></div></div><span class="stat-num">${v}</span></div>`;
+ }
+ header.innerHTML = `
+  <div class="hdr-portrait">${buildCharacterSVG(character.look,{mood:s.mood, energy:s.energy, noPlumbob:true})}</div>
+  <div><div class="hdr-name">${escapeHtml(character.name)}</div><div class="hdr-pos">${escapeHtml(character.position)}</div></div>
+  <div><div class="hdr-day">${DAY_NAMES[state.day]}</div><div class="hdr-time">${fmtTime(state.minutes)}</div><div class="hdr-dots">${dots}</div></div>
+  <div class="stats-row">${bar('energy','⚡',false)}${bar('mood','😊',false)}${bar('hunger','🍔',true)}${bar('reputation','⭐',false)}</div>
+  <button class="menu-btn" data-act="open-menu" aria-label="Меню">☰</button>
+  <div class="buffs-row">${buffsHtml}</div>
+ `;
+}
+function renderTasks(state){
+ const list=document.getElementById('tasks-list');
+ if(!list) return;
+ const today = state.tasks.filter(t=>!t.completed || t.day===state.day).slice(-8);
+ list.innerHTML = state.tasks.filter(t=>!t.completed).concat(state.tasks.filter(t=>t.completed && t.day===state.day)).slice(0,12).map(t=>{
+  const icon = t.completed?'☑':(t.progress>0?'◐':'☐');
+  return `<div class="task-item ${t.overdue?'overdue':''} ${t.completed?'done':''}">${icon} ${t.overdue?'🔥 ':''}${escapeHtml(t.title)} (${Math.min(t.progress,t.size)}/${t.size})</div>`;
+ }).join('') || '<div class="task-item">Поручений нет</div>';
+}
+function renderLog(state){
+ const list=document.getElementById('log-list');
+ if(!list) return;
+ list.innerHTML = state.log.slice(0,30).map(e=>`<div class="log-item">${fmtTime(e.t)} ${e.icon} ${escapeHtml(e.text)} ${e.fxText?'<b>'+escapeHtml(e.fxText)+'</b>':''}</div>`).join('');
+}
+function renderActions(character, state){
+ const bar=document.getElementById('actions-bar');
+ const avail=computeActionAvailability(state, character);
+ const noTasks = !hasOpenTasks(state);
+ bar.innerHTML = ACTION_DEFS.map(a=>{
+  let label=a.label, cost='';
+  const info=avail[a.id]||{enabled:true,reason:''};
+  if(a.id==='work'){ label = noTasks? 'Делать вид, что работаешь' : 'Работать'; cost='1 ч'; }
+  if(a.id==='meeting') cost='1 ч';
+  if(a.id==='coffee') cost='15 мин';
+  if(a.id==='lunch') cost='1 ч';
+  if(a.id==='chat') cost='30 мин';
+  if(a.id==='home') cost=state.minutes<1080?'−15⭐ если рано':'';
+  if(a.id==='beer') cost='';
+  const highlight = state.day===0 && !state.firstActionDone && a.id==='work';
+  return `<button class="action-btn ${highlight?'highlight':''}" data-act="do-action" data-value="${a.id}" ${info.enabled?'':'disabled'} title="${escapeHtml(info.reason||(highlight?'Начни с работы. Или с кофе. Мы не судим.':''))}" aria-label="${label}">
+   <span class="ic">${a.icon}</span><span>${label}</span><span class="cost">${cost}</span>
+  </button>`;
+ }).join('');
+}
+function moveCharacterToZone(zoneKey, animate){
+ const z=ZONES[zoneKey]||ZONES.deskPlayer;
+ const player=document.getElementById('player-group');
+ if(!player) return;
+ player.style.transform = `translate(${z.x}px,${z.y}px) scale(0.6)`;
+}
+function updateWindowColor(minutes){
+ const win=document.getElementById('office-window');
+ if(win) win.setAttribute('fill', windowColorFor(minutes));
+}
+function spawnPopup(statKey, delta){
+ const stat=document.getElementById('stat-'+statKey);
+ if(!stat) return;
+ const span=document.createElement('span');
+ span.className='popup-delta';
+ span.style.color = delta>0? 'var(--success)':'var(--danger)';
+ span.textContent = (delta>0?'+':'')+Math.round(delta);
+ stat.style.position='relative';
+ stat.appendChild(span);
+ setTimeout(()=>span.remove(), 1000);
+}
+function spawnBubble(text){
+ const wrap=document.getElementById('office-wrap');
+ const player=document.getElementById('player-group');
+ if(!wrap||!player) return;
+ const bubble=document.createElement('div');
+ bubble.className='speech-bubble';
+ bubble.textContent=text;
+ const rect=wrap.getBoundingClientRect();
+ const svg=wrap.querySelector('svg');
+ const vb = svg? svg.viewBox.baseVal : {width:400,height:260};
+ const scaleX=rect.width/vb.width, scaleY=rect.height/vb.height;
+ const tf=player.style.transform||'';
+ const m=tf.match(/translate\(([-\d.]+)px,([-\d.]+)px\)/);
+ const x = m? parseFloat(m[1])*scaleX : rect.width/2;
+ const y = m? parseFloat(m[2])*scaleY : rect.height/2;
+ bubble.style.left=x+'px';
+ bubble.style.top=(y-40)+'px';
+ wrap.appendChild(bubble);
+ setTimeout(()=>bubble.remove(), 2600);
+}
+function spawnConfettiBurst(count){
+ const colors=['var(--accent)','var(--success)','var(--warn)','var(--danger)','#5C7CFA'];
+ for(let i=0;i<(count||40);i++){
+  const d=document.createElement('div');
+  d.className='confetti';
+  d.style.left=rand()*100+'vw';
+  d.style.background=pick(colors);
+  d.style.animationDuration=(1+rand())+'s';
+  document.body.appendChild(d);
+  setTimeout(()=>d.remove(), 2200);
+ }
+}
+
+/* ====================== MODALS ====================== */
+function modalRoot(){ return document.getElementById('modal-root'); }
+function setModalHtml(html){ const r=modalRoot(); r.innerHTML=html; r.classList.add('open'); App.modalEpoch=(App.modalEpoch||0)+1; return App.modalEpoch; }
+function closeModalRoot(){ const r=modalRoot(); r.classList.remove('open'); r.innerHTML=''; App.modal=null; App.modalEpoch=(App.modalEpoch||0)+1; }
+
+function fxHint(opt){
+ if(opt.outcomes && opt.outcomes.length) return '🎲';
+ const map={energy:'⚡',mood:'😊',hunger:'🍔',reputation:'⭐',time:'⏱'};
+ const parts=[];
+ for(const k in (opt.fx||{})){ if(opt.fx[k]) parts.push(map[k]+(opt.fx[k]>0?'+':'')+opt.fx[k]); }
+ return parts.join(' ')||'';
+}
+function openEventModal(ev, isBoss, luckBonus){
+ App.modal={type:'event', ev, isBoss, luckBonus};
+ setModalHtml(`<div class="modal-box">
+  <h2>${escapeHtml(ev.title)}</h2>
+  <p>${escapeHtml(ev.text)}</p>
+  <div class="modal-options">
+   ${ev.options.map((o,i)=>`<button class="btn" data-act="event-choice" data-value="${i}">${escapeHtml(o.label)} <span class="hint">${fxHint(o)}</span></button>`).join('')}
+  </div>
+ </div>`);
+}
+function handleEventChoice(idx){
+ const {ev, isBoss, luckBonus}=App.modal;
+ const character=getCharacter(App.currentCharacterId);
+ const state=getGame(character.id);
+ const result=resolveEventOption(ev, idx, character, state, luckBonus||0);
+ saveCurrent();
+ const epoch=setModalHtml(`<div class="modal-box">
+  <h2>Что было дальше</h2>
+  <p>${escapeHtml(result.texts.join(' '))}</p>
+  <div class="modal-footer"><button class="btn primary" data-act="event-ack">Ясно</button></div>
+ </div>`);
+ App.modal={type:'event-ack', afterBoss:isBoss};
+ setTimeout(()=>{ if(App.modal && App.modal.type==='event-ack' && App.modalEpoch===epoch) closeAfterEvent(); }, 3500);
+}
+function closeAfterEvent(){
+ const wasBoss = App.modal && App.modal.afterBoss;
+ closeModalRoot();
+ updateGameUI();
+ if(wasBoss){
+  const state=getGame(App.currentCharacterId);
+  postActionChecks(state, getCharacter(App.currentCharacterId));
+ }
+}
+
+function openEnergyOutModal(){
+ App.modal={type:'energyOut'};
+ setModalHtml(`<div class="modal-box">
+  <h2>«Всё, нужен бокал пива»</h2>
+  <p>Силы кончились. Персонаж обмяк за столом.</p>
+  <div class="modal-options">
+   <button class="btn" data-act="energyout-bar">🍺 Закончить день и пойти в бар</button>
+   <button class="btn" data-act="energyout-home">🛋 Домой отдыхать</button>
+  </div>
+ </div>`);
+}
+function openBarModal(){
+ App.modal={type:'bar'};
+ setModalHtml(`<div class="modal-box">
+  <h2>Бар за углом</h2>
+  <p>Тёплый вечерний свет, бокалы звенят. Сколько сегодня?</p>
+  <div class="modal-options">
+   <button class="btn" data-act="bar-choice" data-value="0">Одну и домой (😊+10)</button>
+   <button class="btn" data-act="bar-choice" data-value="1">Ну, по второй (😊+20)</button>
+   <button class="btn" data-act="bar-choice" data-value="2">Ещё по одной… и ещё… (😊+30, 🎲 похмелье)</button>
+  </div>
+  <div class="disclaimer">Это шуточная игровая механика. Энергию восстанавливает сон.</div>
+ </div>`);
+}
+function openDaySummary(){
+ const state=getGame(App.currentCharacterId);
+ const doneToday = state.tasks.filter(t=>t.completed && t.day===state.day).length;
+ const highlight = state.highlight? state.highlight.text : 'Обычный рабочий день.';
+ const nextLabel = state.day===3? 'Утро пятницы…' : (state.day===0?'Утро вторника… то есть вторника':'Следующее утро…');
+ App.modal={type:'daySummary'};
+ setModalHtml(`<div class="modal-box">
+  <h2>Итоги дня</h2>
+  <p>Выполнено поручений сегодня: ${doneToday}</p>
+  <p>Главный момент дня: ${escapeHtml(highlight)}</p>
+  <div class="modal-footer"><button class="btn primary" data-act="daysummary-sleep">Спать 😴 (${escapeHtml(nextLabel)})</button></div>
+ </div>`);
+}
+function openWeekResults(isFired){
+ const character=getCharacter(App.currentCharacterId);
+ const state=getGame(character.id);
+ const title=computeTitle(state);
+ if(!character.titles.includes(title.id)) character.titles.push(title.id);
+ character.bestTitle = title.id;
+ character.weeksPlayed=(character.weeksPlayed||0)+1;
+ persistCharacters();
+ const wc=state.weekCounters;
+ const highlight = state.highlight? state.highlight.text : '';
+ spawnConfettiBurst(50);
+ App.modal={type:'weekResults'};
+ setModalHtml(`<div class="modal-box">
+  <h2>${isFired?'Неделя окончена':'Ты дожил до пятницы!'}</h2>
+  <div style="font-size:40px;">${title.icon}</div>
+  <h3>${escapeHtml(title.name)}</h3>
+  <p><i>${escapeHtml(title.caption)}</i></p>
+  <p>Выполнено поручений: ${wc.tasksDone} из ${wc.tasksTotal}</p>
+  <p>Кофе: ${wc.coffee} · Совещаний: ${wc.meetings} · Болтовни: ${wc.chats} · Пива: ${wc.beers} · Переработка: ${Math.round(wc.overtimeMin/60*10)/10} ч · Событий: ${wc.events}</p>
+  <p>Репутация: ${Math.round(state.stats.reputation)} · Настроение: ${Math.round(state.stats.mood)}</p>
+  ${highlight?`<p>Лучший момент недели: ${escapeHtml(highlight)}</p>`:''}
+  <div class="modal-footer">
+   <button class="btn" data-act="weekresults-switchchar">Сменить сотрудника</button>
+   <button class="btn primary" data-act="weekresults-newweek">Начать новую неделю</button>
+  </div>
+ </div>`);
+}
+function openConfirm(message, onYes){
+ App.pendingConfirm=onYes;
+ App.modal={type:'confirm'};
+ setModalHtml(`<div class="modal-box">
+  <h2>Подтверждение</h2>
+  <p>${escapeHtml(message)}</p>
+  <div class="modal-footer"><button class="btn" data-act="confirm-no">Отмена</button><button class="btn primary" data-act="confirm-yes">Да</button></div>
+ </div>`);
+}
+function openMenu(){
+ App.modal={type:'menu'};
+ setModalHtml(`<div class="modal-box">
+  <h2>Меню</h2>
+  <div class="modal-options">
+   <button class="btn" data-act="menu-switch-char">Сменить сотрудника</button>
+   <button class="btn" data-act="menu-restart-week">Начать неделю заново</button>
+   <button class="btn" data-act="menu-toggle-sound">Звук: ${App.settings.soundOn?'Вкл':'Выкл'}</button>
+   <button class="btn" data-act="menu-howto">Как играть</button>
+  </div>
+  <div class="modal-footer"><button class="btn" data-act="close-menu">Закрыть</button></div>
+ </div>`);
+}
+function openHowTo(){
+ App.modal={type:'howto'};
+ setModalHtml(`<div class="modal-box">
+  <h2>Как играть</h2>
+  <p><b>Цель:</b> дожить до пятницы, выполняя поручения, не теряя сил, настроения и репутации.</p>
+  <p><b>Показатели:</b> ⚡Энергия, 😊Настроение, 🍔Голод (чем выше — тем голоднее), ⭐Репутация.</p>
+  <p><b>Действия</b> внизу экрана двигают время и меняют показатели. Случайные события подбрасывают выбор с тремя вариантами.</p>
+  <div class="modal-footer"><button class="btn primary" data-act="howto-close">Понятно</button></div>
+ </div>`);
+}
+
+/* ====================== SCREEN SWITCHING ====================== */
+function setScreen(name){
+ App.screen=name;
+ ['screen-select','screen-creator','screen-game'].forEach(id=>{
+  document.getElementById(id).classList.toggle('active', id==='screen-'+name);
+ });
+}
+function goToSelect(){ setScreen('select'); renderSelect(); }
+function goToCreatorNew(){
+ App.creatorDraft=newDraft(); App.creatorEditingId=null;
+ setScreen('creator'); renderCreator();
+}
+function goToCreatorEdit(charId){
+ const c=getCharacter(charId);
+ App.creatorDraft={id:c.id, name:c.name, position:POSITIONS.includes(c.position)?c.position:'Своя…', customPosition:POSITIONS.includes(c.position)?'':c.position, look:Object.assign({},c.look), traits:c.traits.slice()};
+ App.creatorEditingId=charId;
+ setScreen('creator'); renderCreator();
+}
+function goToGame(charId, isNewCharacter){
+ App.currentCharacterId=charId;
+ App.settings.lastCharacterId=charId; persistSettings();
+ let state=getGame(charId);
+ const character=getCharacter(charId);
+ if(!state || state.phase==='weekEnd' || state.phase==='fired'){
+  if(!state){ state=newGameState(character); setGame(charId,state); }
+ }
+ setScreen('game'); renderGame();
+ if(isNewCharacter) openHowTo();
+}
+
+/* ====================== ACTION DISPATCH ====================== */
+function doAction(actionId){
+ const character=getCharacter(App.currentCharacterId);
+ const state=getGame(character.id);
+ if(!state || state.phase!=='playing') return;
+ const avail=computeActionAvailability(state, character);
+ if(avail[actionId] && !avail[actionId].enabled) return;
+ state._lastAction=actionId;
+ state.firstActionDone=true;
+ let needConfirm=false;
+ switch(actionId){
+  case 'work': performWork(state, character); break;
+  case 'meeting': performMeeting(state, character); break;
+  case 'coffee': performCoffee(state, character); break;
+  case 'lunch': performLunch(state, character); break;
+  case 'chat': performChat(state, character); break;
+  case 'home': {
+   const r=performHome(state, character, false);
+   if(r==='needConfirm'){ needConfirm=true; }
+   break;
+  }
+  case 'beer': {
+   if(state.minutes<1080 && state.stats.energy>0) return;
+   openBarModal();
+   return;
+  }
+ }
+ if(needConfirm){
+  openConfirm('Уйти пораньше? Аркадий Борисович всё видит (−15 ⭐)', ()=>{
+   performHome(state, character, true);
+   updateGameUI();
+  });
+  return;
+ }
+ if(state.phase==='playing'){
+  postActionChecks(state, character);
+ } else {
+  updateGameUI();
+ }
+}
+
+/* ====================== CLICK DELEGATION ====================== */
+document.getElementById('app').addEventListener('click', onAppClick);
+document.getElementById('modal-root').addEventListener('click', onAppClick);
+function onAppClick(e){
+ const btn=e.target.closest('[data-act]');
+ if(!btn) return;
+ const act=btn.getAttribute('data-act');
+ const value=btn.getAttribute('data-value');
+ switch(act){
+  case 'select-char': goToGame(value, false); break;
+  case 'new-char': if(App.characters.length<6) goToCreatorNew(); break;
+  case 'edit-char': goToCreatorEdit(value); break;
+  case 'delete-char': openConfirm('Удалить этого сотрудника без возможности восстановления?', ()=>{
+    App.characters=App.characters.filter(c=>c.id!==value);
+    delete App.saves[value];
+    persistCharacters(); persistSaves();
+    closeModalRoot(); renderSelect();
+   }); break;
+  case 'random-name': App.creatorDraft.name=pick(NAME_POOL); renderCreator(); break;
+  case 'randomize-char': { const id=App.creatorDraft.id; App.creatorDraft=randomDraft(); App.creatorDraft.id=id; renderCreator(); break; }
+  case 'set-look': {
+   const field=btn.getAttribute('data-field');
+   const raw=btn.getAttribute('data-value');
+   const stringFields=['hair','outfit','accessory'];
+   App.creatorDraft.look[field] = stringFields.indexOf(field)>=0 ? raw : Number(raw);
+   renderCreator();
+   break;
+  }
+  case 'toggle-trait': {
+   const d=App.creatorDraft;
+   const idx=d.traits.indexOf(value);
+   if(idx>=0){ d.traits.splice(idx,1); }
+   else {
+    const t=traitById(value);
+    const blocked=d.traits.some(id=>traitById(id).incompatible.includes(value));
+    if(d.traits.length<2 && !blocked) d.traits.push(value);
+   }
+   renderCreator();
+   break;
+  }
+  case 'creator-submit': submitCreator(); break;
+  case 'creator-cancel': goToSelect(); break;
+  case 'do-action': doAction(value); break;
+  case 'open-menu': openMenu(); break;
+  case 'close-menu': closeModalRoot(); break;
+  case 'menu-switch-char': closeModalRoot(); goToSelect(); break;
+  case 'menu-restart-week': openConfirm('Начать неделю заново? Весь прогресс текущей недели будет потерян.', ()=>{
+    restartWeek(getCharacter(App.currentCharacterId)); closeModalRoot(); renderGame();
+   }); break;
+  case 'menu-toggle-sound': App.settings.soundOn=!App.settings.soundOn; persistSettings(); openMenu(); break;
+  case 'menu-howto': openHowTo(); break;
+  case 'howto-close': closeModalRoot(); break;
+  case 'confirm-yes': { const cb=App.pendingConfirm; App.pendingConfirm=null; closeModalRoot(); if(cb) cb(); break; }
+  case 'confirm-no': App.pendingConfirm=null; closeModalRoot(); break;
+  case 'event-choice': handleEventChoice(Number(value)); break;
+  case 'event-ack': closeAfterEvent(); break;
+  case 'energyout-bar': closeModalRoot(); openBarModal(); break;
+  case 'energyout-home': {
+   closeModalRoot();
+   const character=getCharacter(App.currentCharacterId);
+   const state=getGame(character.id);
+   goHomeToSleep(state, character, 'energyHome');
+   break;
+  }
+  case 'bar-choice': {
+   closeModalRoot();
+   const character=getCharacter(App.currentCharacterId);
+   const state=getGame(character.id);
+   performBeerChoice(state, character, Number(value));
+   break;
+  }
+  case 'daysummary-sleep': {
+   closeModalRoot();
+   const character=getCharacter(App.currentCharacterId);
+   const state=getGame(character.id);
+   nextDay(state, character);
+   renderGame();
+   break;
+  }
+  case 'weekresults-newweek': {
+   closeModalRoot();
+   const character=getCharacter(App.currentCharacterId);
+   restartWeek(character);
+   renderGame();
+   break;
+  }
+  case 'weekresults-switchchar': closeModalRoot(); goToSelect(); break;
+ }
+}
+
+function submitCreator(){
+ if(!creatorValid()) return;
+ const existing = App.creatorEditingId? getCharacter(App.creatorEditingId) : null;
+ const character = draftToCharacter(App.creatorDraft, existing);
+ if(existing){
+  Object.assign(existing, {name:character.name, position:character.position, look:character.look});
+  persistCharacters();
+  goToSelect();
+ } else {
+  App.characters.push(character);
+  persistCharacters();
+  const state=newGameState(character);
+  setGame(character.id, state);
+  goToGame(character.id, true);
+ }
+}
+
+/* ====================== KEYBOARD ====================== */
+document.addEventListener('keydown', e=>{
+ if(App.modal && App.modal.type==='event'){
+  const idx={'1':0,'2':1,'3':2,'a':0,'b':1,'c':2}[e.key.toLowerCase()];
+  if(idx!=null){ handleEventChoice(idx); }
+  return;
+ }
+ if(App.screen==='game' && !App.modal){
+  const i=Number(e.key)-1;
+  if(i>=0 && i<ACTION_DEFS.length){ doAction(ACTION_DEFS[i].id); }
+  if(e.key==='Escape'){ /* menu toggle not open by default */ }
+ }
+ if(e.key==='Escape' && App.modal && App.modal.type==='menu'){ closeModalRoot(); }
+});
+
+/* ====================== INIT ====================== */
+function init(){
+ loadAll();
+ if(App.characters.length===0){
+  goToCreatorNew();
+ } else {
+  goToSelect();
+ }
+}
+init();
+
+</script>
+</body>
+</html>
